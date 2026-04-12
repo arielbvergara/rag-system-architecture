@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build outputs
+client/.next/
+client/out/
+server/dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+
+# Docker
+docker-compose.override.yml
+
+# Deployment
+.vercel/
+.turbo/
+
+# Claude Code (local tooling only)
+.claude/settings.local.json
+.claude/skills/
+.claude/worktrees/

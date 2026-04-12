@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Husky pre-commit: run lint + typecheck
+if [ "${HUSKY:-1}" = "0" ]; then
+  exit 0
+fi
+
+echo "🔍 Running pre-commit checks..."
+
+echo "📝 Checking lint..."
+pnpm lint || exit 1
+
+echo "🔷 Checking types..."
+pnpm type-check || exit 1
+
+echo "✅ Pre-commit checks passed!"

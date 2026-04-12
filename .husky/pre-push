@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Husky pre-push: run tests + build
+if [ "${HUSKY:-1}" = "0" ]; then
+  exit 0
+fi
+
+echo "🚀 Running pre-push checks..."
+
+echo "🧪 Running tests..."
+pnpm test || exit 1
+
+echo "📦 Building..."
+pnpm build || exit 1
+
+echo "✅ Pre-push checks passed!"

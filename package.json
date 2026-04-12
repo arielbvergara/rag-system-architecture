@@ -1,0 +1,32 @@
+{
+  "name": "nextjs-express-starter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Next.js + Express boilerplate with Google services integration",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:client": "pnpm --filter client dev",
+    "dev:server": "pnpm --filter server dev",
+    "build": "pnpm run build:client && pnpm run build:server",
+    "build:client": "pnpm --filter client build",
+    "build:server": "pnpm --filter server build",
+    "start": "pnpm --parallel start:client start:server",
+    "start:client": "pnpm --filter client start",
+    "start:server": "pnpm --filter server start",
+    "lint": "pnpm run lint:client && pnpm run lint:server",
+    "lint:client": "pnpm --filter client lint",
+    "lint:server": "pnpm --filter server lint",
+    "type-check": "pnpm run type-check:client && pnpm run type-check:server",
+    "type-check:client": "pnpm --filter client type-check",
+    "type-check:server": "pnpm --filter server type-check",
+    "test": "pnpm --filter server test",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

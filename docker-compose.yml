@@ -1,0 +1,26 @@
+services:
+  client:
+    build:
+      context: ./client
+      dockerfile: ../docker/client.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://server:4000/api
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: ../docker/server.Dockerfile
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - CLIENT_URL=http://localhost:3000
+    restart: unless-stopped
