@@ -5,35 +5,23 @@ import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
   {
-    href: "/dashboard",
-    label: "Dashboard",
+    href: "/documents",
+    label: "Documents",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="16" y2="17" />
       </svg>
     ),
   },
   {
-    href: "/calendar",
-    label: "Calendar",
+    href: "/chat",
+    label: "Chat",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-      </svg>
-    ),
-  },
-  {
-    href: "/menu",
-    label: "Menu",
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
-        <path d="M3 6h18M3 12h18M3 18h18" />
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -45,7 +33,6 @@ export function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-[var(--surface)]/90 backdrop-blur-sm border-b border-[var(--border)]">
       <div className="max-w-6xl mx-auto h-full px-6 flex items-center justify-between">
-        {/* Logo */}
         <Link
           href="/"
           className="flex items-center gap-2.5 cursor-pointer"
@@ -53,16 +40,14 @@ export function Navbar() {
         >
           <div className="w-7 h-7 rounded-lg bg-[var(--accent)] flex items-center justify-center shrink-0" aria-hidden="true">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </div>
           <span className="font-semibold text-[var(--foreground)] text-sm" style={{ fontFamily: "var(--font-family-heading)" }}>
-            GS Starter
+            RAG
           </span>
         </Link>
 
-        {/* Nav links */}
         <div className="flex items-center gap-1">
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href || pathname.startsWith(link.href + "/");

@@ -9,7 +9,7 @@ export const readLimiter = rateLimit({
   message: { success: false, error: "Too many requests, please try again later." },
 });
 
-// 10 requests per minute for write (POST) endpoints
+// 10 requests per minute for write (POST/DELETE) endpoints
 export const writeLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -18,13 +18,22 @@ export const writeLimiter = rateLimit({
   message: { success: false, error: "Too many requests, please try again later." },
 });
 
-// 20 requests per minute for AI chat endpoints
-export const chatLimiter = rateLimit({
+// 20 requests per minute for RAG chat endpoints
+export const ragLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: "Too many requests, please try again later." },
+});
+
+// 5 requests per minute for document upload endpoints (embedding generation is resource-intensive)
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Too many upload requests, please try again later." },
 });
 
 // 5 requests per 15 minutes for authentication endpoints
@@ -34,13 +43,4 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: "Too many login attempts, please try again later." },
-});
-
-// 5 requests per minute for menu scan endpoints (Gemini Vision calls are resource-intensive)
-export const scanLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, error: "Too many scan requests, please try again later." },
 });

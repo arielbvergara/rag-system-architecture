@@ -16,8 +16,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "GS Starter — Next.js + Google Services",
-  description: "Next.js + Express with Google Calendar, Sheets, Drive & Gmail pre-configured.",
+  title: "RAG — Document Intelligence",
+  description: "Upload documents and chat with them using Retrieval-Augmented Generation.",
 };
 
 export default function RootLayout({
