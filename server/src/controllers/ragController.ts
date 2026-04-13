@@ -1,17 +1,6 @@
 import { Request, Response } from "express";
 import type { ApiResponse, RagResponse } from "../types";
-import { getRagService } from "../services/ragService";
-import { EmbeddingService } from "../services/embeddingService";
-import { LocalFileVectorStore } from "../vectorstore/localFileStore";
-import { createProviders } from "../providers/factory";
-import { config } from "../config";
-
-function getServices() {
-  const { embedding, llm } = createProviders();
-  const vectorStore = new LocalFileVectorStore(config.rag.dataDir);
-  const embeddingService = new EmbeddingService(embedding);
-  return getRagService(embeddingService, vectorStore, llm);
-}
+import { getRagContainer } from "../lib/ragContainer";
 
 export async function chat(
   req: Request,
@@ -34,7 +23,7 @@ export async function chat(
     return;
   }
 
-  const ragService = getServices();
+  const ragService = getRagContainer();
   try {
     const response = await ragService.chat(sid, message.trim(), documentIds);
     res.json({ success: true, data: response });
@@ -66,7 +55,7 @@ export async function chatStream(req: Request, res: Response): Promise<void> {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const ragService = getServices();
+  const ragService = getRagContainer();
   try {
     for await (const chunk of ragService.chatStream(sid, message.trim(), documentIds)) {
       res.write(`data: ${JSON.stringify(chunk)}\n\n`);

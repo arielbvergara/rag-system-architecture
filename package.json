@@ -19,7 +19,9 @@
     "type-check": "pnpm run type-check:client && pnpm run type-check:server",
     "type-check:client": "pnpm --filter client type-check",
     "type-check:server": "pnpm --filter server type-check",
-    "test": "pnpm --filter server test",
+    "test": "pnpm --filter client test && pnpm --filter server test",
+    "test:client": "pnpm --filter client test",
+    "test:server": "pnpm --filter server test",
     "prepare": "husky"
   },
   "engines": {

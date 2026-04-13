@@ -1,18 +1,7 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import type { ApiResponse, RagDocument } from "../types";
-import { getRagService } from "../services/ragService";
-import { EmbeddingService } from "../services/embeddingService";
-import { LocalFileVectorStore } from "../vectorstore/localFileStore";
-import { createProviders } from "../providers/factory";
-import { config } from "../config";
-
-function getServices() {
-  const { embedding, llm } = createProviders();
-  const vectorStore = new LocalFileVectorStore(config.rag.dataDir);
-  const embeddingService = new EmbeddingService(embedding);
-  return getRagService(embeddingService, vectorStore, llm);
-}
+import { getRagContainer } from "../lib/ragContainer";
 
 export async function uploadDocument(
   req: Request,
@@ -24,7 +13,7 @@ export async function uploadDocument(
     return;
   }
 
-  const ragService = getServices();
+  const ragService = getRagContainer();
   const id = randomUUID();
 
   try {
@@ -40,7 +29,7 @@ export async function listDocuments(
   _req: Request,
   res: Response<ApiResponse<RagDocument[]>>
 ): Promise<void> {
-  const ragService = getServices();
+  const ragService = getRagContainer();
   try {
     const docs = await ragService.listDocuments();
     res.json({ success: true, data: docs });
@@ -59,7 +48,7 @@ export async function deleteDocument(
     return;
   }
 
-  const ragService = getServices();
+  const ragService = getRagContainer();
   try {
     await ragService.deleteDocument(id);
     res.json({ success: true, message: "Document deleted" });
