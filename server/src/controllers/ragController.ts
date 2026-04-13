@@ -54,6 +54,11 @@ export async function chatStream(req: Request, res: Response): Promise<void> {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  // Disable buffering in Nginx / reverse-proxy environments
+  res.setHeader("X-Accel-Buffering", "no");
+  // Flush headers immediately so the SSE connection is established before
+  // the first chunk arrives (important for long-running embedding calls)
+  res.flushHeaders();
 
   const ragService = getRagContainer();
   try {
