@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse: (buffer: Buffer) => Promise<{ text: string; numpages: number }> = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 import { randomUUID } from "crypto";
 import type { Chunk, ChunkMetadata } from "../types";
 
@@ -18,8 +17,10 @@ const SEPARATORS = ["\n\n", "\n", ". ", " ", ""];
 export class DocumentProcessingService {
   async parseDocument(buffer: Buffer, mimeType: string): Promise<ParsedDocument> {
     if (mimeType === "application/pdf") {
-      const result = await pdfParse(buffer);
-      return { text: result.text, pageCount: result.numpages };
+      const parser = new PDFParse({ data: buffer });
+      const result = await parser.getText();
+      await parser.destroy();
+      return { text: result.text, pageCount: result.total };
     }
     // text/plain and text/markdown
     return { text: buffer.toString("utf-8") };

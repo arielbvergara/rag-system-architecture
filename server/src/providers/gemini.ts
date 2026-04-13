@@ -1,24 +1,29 @@
+import { GoogleGenAI } from "@google/genai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { IEmbeddingProvider, ILLMProvider } from "./interfaces";
 import type { ChatMessage } from "../types";
 
-const EMBEDDING_MODEL = "text-embedding-004";
+const EMBEDDING_MODEL = "gemini-embedding-001";
 const EMBEDDING_DIMENSIONS = 768;
 const GENERATION_MODEL = "gemini-2.5-flash";
 
 export class GeminiEmbeddingProvider implements IEmbeddingProvider {
-  private readonly genAI: GoogleGenerativeAI;
+  private readonly ai: GoogleGenAI;
 
   constructor(apiKey: string) {
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.ai = new GoogleGenAI({ apiKey });
   }
 
   async embed(texts: string[]): Promise<number[][]> {
-    const model = this.genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
     const results = await Promise.all(
-      texts.map((text) => model.embedContent(text))
+      texts.map((text) =>
+        this.ai.models.embedContent({
+          model: EMBEDDING_MODEL,
+          contents: text,
+        })
+      )
     );
-    return results.map((r) => r.embedding.values);
+    return results.map((r) => r.embeddings?.[0]?.values ?? []);
   }
 
   getDimensions(): number {
