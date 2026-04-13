@@ -45,12 +45,16 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
+  /** The model that generated this message (assistant messages only). */
+  model?: string;
 }
 
 export interface RagResponse {
   answer: string;
   citations: Citation[];
   sessionId: string;
+  /** The model that generated the answer. */
+  model: string;
 }
 
 export interface StreamChunk {
@@ -58,4 +62,6 @@ export interface StreamChunk {
   content?: string;
   citations?: Citation[];
   error?: string;
+  /** Present on "done" chunks — the model that generated the response. */
+  model?: string;
 }

@@ -87,7 +87,8 @@ describe("GeminiLLMProvider.generateResponse", () => {
 
     const result = await provider.generateResponse("You are helpful.", HISTORY);
 
-    expect(result).toBe("The answer.");
+    expect(result.content).toBe("The answer.");
+    expect(result.model).toBe("gemini-2.5-flash");
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
 
@@ -98,7 +99,8 @@ describe("GeminiLLMProvider.generateResponse", () => {
 
     const result = await provider.generateResponse("You are helpful.", HISTORY);
 
-    expect(result).toBe("Fallback answer.");
+    expect(result.content).toBe("Fallback answer.");
+    expect(result.model).toBe("gemini-2.5-flash-lite");
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
   });
 
@@ -126,7 +128,8 @@ describe("GeminiLLMProvider.generateResponse", () => {
 
     const result = await provider.generateResponse("You are helpful.", HISTORY);
 
-    expect(result).toBe("Third time lucky.");
+    expect(result.content).toBe("Third time lucky.");
+    expect(result.model).toBe("gemini-2-flash");
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
   });
 });
@@ -147,21 +150,42 @@ describe("GeminiLLMProvider.generateStream", () => {
     }
   }
 
-  async function collectStream(iterable: AsyncIterable<string>): Promise<string[]> {
-    const results: string[] = [];
-    for await (const delta of iterable) {
-      results.push(delta);
+  async function collectStream(
+    gen: AsyncGenerator<string, string, unknown>
+  ): Promise<{ deltas: string[]; model: string }> {
+    const deltas: string[] = [];
+    while (true) {
+      const step = await gen.next();
+      if (step.done) return { deltas, model: step.value };
+      deltas.push(step.value);
     }
-    return results;
   }
 
   it("generateStream_ShouldYieldDeltas_WhenPrimaryModelSucceeds", async () => {
     mockSendMessageStream.mockResolvedValueOnce({ stream: makeStream(["Hello ", "world"]) });
 
-    const deltas = await collectStream(provider.generateStream("You are helpful.", HISTORY));
+    const { deltas } = await collectStream(provider.generateStream("You are helpful.", HISTORY));
 
     expect(deltas).toEqual(["Hello ", "world"]);
     expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("generateStream_ShouldReturnModelName_WhenPrimaryModelSucceeds", async () => {
+    mockSendMessageStream.mockResolvedValueOnce({ stream: makeStream(["Hello"]) });
+
+    const { model } = await collectStream(provider.generateStream("You are helpful.", HISTORY));
+
+    expect(model).toBe("gemini-2.5-flash");
+  });
+
+  it("generateStream_ShouldReturnFallbackModelName_When503IsReceived", async () => {
+    mockSendMessageStream
+      .mockRejectedValueOnce(makeError("[503"))
+      .mockResolvedValueOnce({ stream: makeStream(["Fallback"]) });
+
+    const { model } = await collectStream(provider.generateStream("You are helpful.", HISTORY));
+
+    expect(model).toBe("gemini-2.5-flash-lite");
   });
 
   it("generateStream_ShouldFallbackToNextModel_When503IsReceived", async () => {
@@ -169,7 +193,7 @@ describe("GeminiLLMProvider.generateStream", () => {
       .mockRejectedValueOnce(makeError("[503")) // primary fails before streaming
       .mockResolvedValueOnce({ stream: makeStream(["Fallback response."]) }); // fallback 1 works
 
-    const deltas = await collectStream(provider.generateStream("You are helpful.", HISTORY));
+    const { deltas } = await collectStream(provider.generateStream("You are helpful.", HISTORY));
 
     expect(deltas).toEqual(["Fallback response."]);
     expect(mockSendMessageStream).toHaveBeenCalledTimes(2);

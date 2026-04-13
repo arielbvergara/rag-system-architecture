@@ -108,6 +108,13 @@ export function ChatInterface({
               >
                 {msg.content}
               </div>
+              {msg.role === "assistant" && msg.model && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="text-[10px] text-[var(--muted)] font-mono bg-[var(--surface)] border border-[var(--border)] rounded px-1.5 py-0.5 leading-none">
+                    {msg.model}
+                  </span>
+                </div>
+              )}
               {msg.role === "assistant" && msg.citations && msg.citations.length > 0 && (
                 <div className="mt-2 w-full">
                   <CitationCard citations={msg.citations} />

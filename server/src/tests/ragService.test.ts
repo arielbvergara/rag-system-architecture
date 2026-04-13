@@ -38,11 +38,14 @@ function makeFakeVectorStore(results: SearchResult[] = []): IVectorStore {
   };
 }
 
+const FAKE_MODEL = "test-model";
+
 function makeFakeLLMProvider(answer = "Mocked answer"): ILLMProvider {
   return {
-    generateResponse: vi.fn().mockResolvedValue(answer),
+    generateResponse: vi.fn().mockResolvedValue({ content: answer, model: FAKE_MODEL }),
     generateStream: vi.fn().mockImplementation(async function* () {
       yield answer;
+      return FAKE_MODEL;
     }),
   };
 }
@@ -76,6 +79,11 @@ describe("RagService", () => {
   it("chat_ShouldReturnAnswer_WhenCalled", async () => {
     const response = await ragService.chat("session-1", "What is the capital of France?");
     expect(response.answer).toBe("Paris is the capital of France.");
+  });
+
+  it("chat_ShouldReturnModelName_WhenCalled", async () => {
+    const response = await ragService.chat("session-model", "What is the capital of France?");
+    expect(response.model).toBe(FAKE_MODEL);
   });
 
   it("chat_ShouldIncludeCitations_WhenContextIsRetrieved", async () => {
@@ -126,6 +134,16 @@ describe("RagService", () => {
     const done = chunks.find((c) => c.type === "done");
     expect(delta).toBeDefined();
     expect(done).toBeDefined();
+  });
+
+  it("chatStream_ShouldIncludeModelInDoneChunk_WhenStreaming", async () => {
+    const chunks = [];
+    for await (const chunk of ragService.chatStream("session-model-stream", "Model stream test?")) {
+      chunks.push(chunk);
+    }
+
+    const done = chunks.find((c) => c.type === "done");
+    expect(done?.model).toBe(FAKE_MODEL);
   });
 
   it("chatStream_ShouldEmitCitations_WhenContextIsRetrieved", async () => {

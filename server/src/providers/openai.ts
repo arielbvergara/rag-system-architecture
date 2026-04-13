@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { IEmbeddingProvider, ILLMProvider } from "./interfaces";
+import type { IEmbeddingProvider, ILLMProvider, LLMGenerateResult } from "./interfaces";
 import type { ChatMessage } from "../types";
 
 const OPENAI_EMBEDDING_DIMENSIONS: Record<string, number> = {
@@ -47,7 +47,7 @@ export class OpenAILLMProvider implements ILLMProvider {
     this.model = model;
   }
 
-  async generateResponse(systemPrompt: string, history: ChatMessage[]): Promise<string> {
+  async generateResponse(systemPrompt: string, history: ChatMessage[]): Promise<LLMGenerateResult> {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
       ...history.map((msg) => ({
@@ -61,10 +61,16 @@ export class OpenAILLMProvider implements ILLMProvider {
       messages,
     });
 
-    return response.choices[0]?.message?.content ?? "";
+    return {
+      content: response.choices[0]?.message?.content ?? "",
+      model: this.model,
+    };
   }
 
-  async *generateStream(systemPrompt: string, history: ChatMessage[]): AsyncIterable<string> {
+  async *generateStream(
+    systemPrompt: string,
+    history: ChatMessage[]
+  ): AsyncGenerator<string, string, unknown> {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
       ...history.map((msg) => ({
@@ -83,5 +89,7 @@ export class OpenAILLMProvider implements ILLMProvider {
       const delta = chunk.choices[0]?.delta?.content;
       if (delta) yield delta;
     }
+
+    return this.model;
   }
 }

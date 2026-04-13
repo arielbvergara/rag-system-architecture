@@ -7,6 +7,7 @@ import { ChatInterface } from "@/components/ui/ChatInterface";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 
 const SESSION_KEY = "rag_session_id";
+const CHAT_MESSAGES_KEY = "rag_chat_messages";
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
@@ -18,7 +19,19 @@ function getOrCreateSessionId(): string {
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Lazy initializer reads sessionStorage once at mount (no extra render).
+  // Messages survive a page refresh within the same browser tab session.
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = sessionStorage.getItem(CHAT_MESSAGES_KEY);
+      if (!stored) return [];
+      const parsed = JSON.parse(stored) as ChatMessage[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState("");
@@ -31,6 +44,13 @@ export default function ChatPage() {
   useEffect(() => {
     sessionIdRef.current = getOrCreateSessionId();
   }, []);
+
+  // Persist messages to sessionStorage whenever they change.
+  // Skips the initial empty state to avoid overwriting a valid persisted history.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    sessionStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(messages));
+  }, [messages]);
 
   useEffect(() => {
     api.documents.list().then((res) => {
@@ -64,7 +84,7 @@ export default function ChatPage() {
         } else if (chunk.type === "done") {
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: buffer, citations },
+            { role: "assistant", content: buffer, citations, model: chunk.model },
           ]);
           setStreamBuffer("");
           setStreaming(false);
