@@ -84,7 +84,7 @@ export default function ChatPage() {
         } else if (chunk.type === "done") {
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: buffer, citations },
+            { role: "assistant", content: buffer, citations, model: chunk.model },
           ]);
           setStreamBuffer("");
           setStreaming(false);

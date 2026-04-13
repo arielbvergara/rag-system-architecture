@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { IEmbeddingProvider, ILLMProvider } from "./interfaces";
+import type { IEmbeddingProvider, ILLMProvider, LLMGenerateResult } from "./interfaces";
 import type { ChatMessage } from "../types";
 
 const EMBEDDING_MODEL = "gemini-embedding-001";
@@ -70,7 +70,7 @@ export class GeminiLLMProvider implements ILLMProvider {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  async generateResponse(systemPrompt: string, history: ChatMessage[]): Promise<string> {
+  async generateResponse(systemPrompt: string, history: ChatMessage[]): Promise<LLMGenerateResult> {
     const geminiHistory = history.slice(0, -1).map((msg) => ({
       role: msg.role === "user" ? ("user" as const) : ("model" as const),
       parts: [{ text: msg.content }],
@@ -87,7 +87,7 @@ export class GeminiLLMProvider implements ILLMProvider {
         });
         const chat = model.startChat({ history: geminiHistory });
         const result = await chat.sendMessage(lastMessage.content);
-        return result.response.text();
+        return { content: result.response.text(), model: modelId };
       } catch (err) {
         if (isRetryableGeminiError(err)) {
           lastError = err;
@@ -100,7 +100,10 @@ export class GeminiLLMProvider implements ILLMProvider {
     throw lastError; // all models exhausted
   }
 
-  async *generateStream(systemPrompt: string, history: ChatMessage[]): AsyncIterable<string> {
+  async *generateStream(
+    systemPrompt: string,
+    history: ChatMessage[]
+  ): AsyncGenerator<string, string, unknown> {
     const geminiHistory = history.slice(0, -1).map((msg) => ({
       role: msg.role === "user" ? ("user" as const) : ("model" as const),
       parts: [{ text: msg.content }],
@@ -124,7 +127,7 @@ export class GeminiLLMProvider implements ILLMProvider {
           const text = chunk.text();
           if (text) yield text;
         }
-        return; // success — stop iterating the chain
+        return modelId; // success — return the model that was actually used
       } catch (err) {
         if (isRetryableGeminiError(err)) {
           lastError = err;

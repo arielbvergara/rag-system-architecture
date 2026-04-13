@@ -179,10 +179,10 @@ export class RagService {
 
     history.push({ role: "user", content: userMessage });
 
-    const answer = await this.llmProvider.generateResponse(systemPrompt, [...history]);
-    history.push({ role: "assistant", content: answer });
+    const { content, model } = await this.llmProvider.generateResponse(systemPrompt, [...history]);
+    history.push({ role: "assistant", content });
 
-    return { answer, citations, sessionId };
+    return { answer: content, citations, sessionId, model };
   }
 
   async *chatStream(
@@ -200,12 +200,22 @@ export class RagService {
 
     let fullAnswer = "";
     try {
-      for await (const delta of this.llmProvider.generateStream(systemPrompt, [...history])) {
+      // Use .next() instead of for-await-of so we can capture the generator's
+      // return value, which carries the model name that was actually used.
+      const generator = this.llmProvider.generateStream(systemPrompt, [...history]);
+      let modelUsed = "unknown";
+      while (true) {
+        const step = await generator.next();
+        if (step.done) {
+          modelUsed = step.value; // string return value = model name
+          break;
+        }
+        const delta = step.value; // string yield value = text delta
         fullAnswer += delta;
         yield { type: "delta", content: delta };
       }
       history.push({ role: "assistant", content: fullAnswer });
-      yield { type: "done" };
+      yield { type: "done", model: modelUsed };
     } catch (err) {
       yield { type: "error", error: err instanceof Error ? err.message : "Stream failed" };
     }
