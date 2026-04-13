@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
-import type { RagDocument } from "@/types";
+import type { DocumentStatus, RagDocument } from "@/types";
 import { DocumentUploader } from "@/components/ui/DocumentUploader";
 import { DocumentList } from "@/components/ui/DocumentList";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { SkeletonPulse } from "@/components/ui/SkeletonPulse";
 
 const ADMIN_TOKEN_KEY = "rag_admin_token";
+const POLL_INTERVAL_MS = 1500;
+const POLL_MAX_ATTEMPTS = 120; // up to 3 minutes
+const TERMINAL_STATUSES: DocumentStatus[] = ["ready", "error"];
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<RagDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [processingStep, setProcessingStep] = useState<DocumentStatus | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -24,13 +28,42 @@ export default function DocumentsPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     api.documents.list().then((res) => {
       if (res.success && res.data) setDocuments(res.data);
       else setError(res.error ?? "Failed to load documents");
       setLoading(false);
     });
+    return () => {
+      if (pollingRef.current) clearTimeout(pollingRef.current);
+    };
   }, []);
+
+  function startPolling(docId: string, attempt = 0): void {
+    if (attempt >= POLL_MAX_ATTEMPTS) {
+      setProcessingStep(null);
+      return;
+    }
+
+    pollingRef.current = setTimeout(async () => {
+      const res = await api.documents.getStatus(docId);
+      if (!res.success || !res.data) {
+        setProcessingStep(null);
+        return;
+      }
+      const doc = res.data;
+      setProcessingStep(doc.status);
+      setDocuments((prev) => prev.map((d) => (d.id === docId ? doc : d)));
+
+      if (TERMINAL_STATUSES.includes(doc.status)) {
+        setProcessingStep(null);
+      } else {
+        startPolling(docId, attempt + 1);
+      }
+    }, POLL_INTERVAL_MS);
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -52,12 +85,15 @@ export default function DocumentsPage() {
     setUploading(true);
     setUploadError(null);
     const res = await api.documents.upload(file, token);
+    setUploading(false);
     if (res.success && res.data) {
-      setDocuments((prev) => [res.data!, ...prev]);
+      const doc = res.data;
+      setDocuments((prev) => [doc, ...prev]);
+      setProcessingStep(doc.status);
+      startPolling(doc.id);
     } else {
       setUploadError(res.error ?? "Upload failed");
     }
-    setUploading(false);
   }
 
   async function handleDelete(id: string) {
@@ -91,7 +127,11 @@ export default function DocumentsPage() {
         {token ? (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-4">
             <h2 className="text-sm font-semibold text-[var(--foreground)]">Upload a document</h2>
-            <DocumentUploader onUpload={handleUpload} loading={uploading} />
+            <DocumentUploader
+              onUpload={handleUpload}
+              loading={uploading}
+              processingStep={processingStep}
+            />
             {uploadError && <ErrorAlert error={uploadError} />}
           </div>
         ) : (

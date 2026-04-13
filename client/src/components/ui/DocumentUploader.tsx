@@ -1,17 +1,28 @@
 "use client";
 
 import { useRef, useState, DragEvent, ChangeEvent } from "react";
+import type { DocumentStatus } from "@/types";
 
 const ACCEPTED_TYPES = new Set(["application/pdf", "text/plain", "text/markdown"]);
 const ACCEPTED_EXTENSIONS = [".pdf", ".txt", ".md", ".markdown"];
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
+const STEP_LABELS: Partial<Record<DocumentStatus, string>> = {
+  queued:    "Queued for processing…",
+  parsing:   "Parsing document…",
+  chunking:  "Splitting into chunks…",
+  embedding: "Generating embeddings…",
+};
+
+const PROCESSING_STEPS: DocumentStatus[] = ["queued", "parsing", "chunking", "embedding"];
+
 interface DocumentUploaderProps {
   onUpload: (file: File) => void;
   loading: boolean;
+  processingStep?: DocumentStatus | null;
 }
 
-export function DocumentUploader({ onUpload, loading }: DocumentUploaderProps) {
+export function DocumentUploader({ onUpload, loading, processingStep }: DocumentUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -49,15 +60,25 @@ export function DocumentUploader({ onUpload, loading }: DocumentUploaderProps) {
     if (file) handleFile(file);
   }
 
+  const isProcessing = processingStep != null && PROCESSING_STEPS.includes(processingStep);
+  const isDisabled = loading || isProcessing;
+  const currentStepIndex = processingStep ? PROCESSING_STEPS.indexOf(processingStep) : -1;
+
+  const statusLabel = loading
+    ? "Uploading…"
+    : isProcessing
+    ? STEP_LABELS[processingStep!]
+    : "Drop a file here or click to browse";
+
   return (
     <div className="space-y-3">
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); if (!isDisabled) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        onClick={() => !loading && inputRef.current?.click()}
+        onClick={() => !isDisabled && inputRef.current?.click()}
         className={`rounded-xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-colors duration-150 cursor-pointer ${
-          loading
+          isDisabled
             ? "opacity-50 cursor-not-allowed border-[var(--border)]"
             : dragging
             ? "border-[var(--accent)] bg-[var(--accent)]/5"
@@ -72,14 +93,31 @@ export function DocumentUploader({ onUpload, loading }: DocumentUploaderProps) {
           </svg>
         </div>
         <div className="text-center">
-          <p className="text-sm font-medium text-[var(--foreground)]">
-            {loading ? "Processing…" : "Drop a file here or click to browse"}
-          </p>
+          <p className="text-sm font-medium text-[var(--foreground)]">{statusLabel}</p>
           <p className="text-xs text-[var(--muted)] mt-1">
             PDF, TXT, Markdown · Max 10 MB
           </p>
         </div>
       </div>
+
+      {/* Multi-step progress indicator */}
+      {isProcessing && (
+        <div className="flex items-center gap-1.5">
+          {PROCESSING_STEPS.map((step, i) => (
+            <div key={step} className="flex items-center gap-1.5 flex-1">
+              <div
+                className={`h-1.5 rounded-full flex-1 transition-colors duration-300 ${
+                  i < currentStepIndex
+                    ? "bg-[var(--accent)]"
+                    : i === currentStepIndex
+                    ? "bg-[var(--accent)] animate-pulse"
+                    : "bg-[var(--border)]"
+                }`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <input
         ref={inputRef}
@@ -87,7 +125,7 @@ export function DocumentUploader({ onUpload, loading }: DocumentUploaderProps) {
         accept={ACCEPTED_EXTENSIONS.join(",")}
         className="hidden"
         onChange={handleChange}
-        disabled={loading}
+        disabled={isDisabled}
       />
 
       {validationError && (
