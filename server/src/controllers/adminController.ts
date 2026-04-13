@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { timingSafeEqual } from "crypto";
 import type { ApiResponse } from "../types";
 import { createSession } from "../middleware/adminAuth";
 import { config } from "../config";
@@ -17,7 +18,12 @@ export async function authenticate(
     return;
   }
 
-  if (!config.admin.password || password !== config.admin.password) {
+  const storedPassword = config.admin.password;
+  if (
+    !storedPassword ||
+    password.length !== storedPassword.length ||
+    !timingSafeEqual(Buffer.from(password), Buffer.from(storedPassword))
+  ) {
     res.status(401).json({ success: false, error: "Invalid password" });
     return;
   }
