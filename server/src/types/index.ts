@@ -12,14 +12,17 @@ export interface AdminSession {
 
 // ── RAG Domain Types ──────────────────────────────────────────────────────────
 
+export type DocumentStatus = "queued" | "parsing" | "chunking" | "embedding" | "ready" | "error";
+
 export interface RagDocument {
   id: string;
   filename: string;
   mimeType: string;
   uploadedAt: string;
   chunkCount: number;
-  status: "processing" | "ready" | "error";
+  status: DocumentStatus;
   errorMessage?: string;
+  contentHash?: string;
 }
 
 export interface ChunkMetadata {
