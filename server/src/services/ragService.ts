@@ -17,6 +17,30 @@ import { config } from "../config";
 
 const DOCUMENTS_FILE = "documents.json";
 const MAX_CONTEXT_CHARS = 8000;
+const CITATION_EXCERPT_MAX_CHARS = 300;
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours of inactivity
+const SESSION_CLEANUP_INTERVAL_MS = 15 * 60 * 1000; // run cleanup every 15 minutes
+
+interface SessionEntry {
+  messages: ChatMessage[];
+  lastAccessedAt: number;
+}
+
+function truncateAtSentenceBoundary(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const candidate = text.slice(0, maxChars);
+  const lastBoundary = Math.max(
+    candidate.lastIndexOf(". "),
+    candidate.lastIndexOf(".\n"),
+    candidate.lastIndexOf("! "),
+    candidate.lastIndexOf("? "),
+    candidate.lastIndexOf("\n\n"),
+  );
+  if (lastBoundary > maxChars * 0.5) {
+    return candidate.slice(0, lastBoundary + 1);
+  }
+  return candidate;
+}
 
 export class RagService {
   private readonly docProcessor: DocumentProcessingService;
@@ -24,7 +48,7 @@ export class RagService {
   private readonly vectorStore: IVectorStore;
   private readonly llmProvider: ILLMProvider;
   private readonly dataDir: string;
-  private readonly sessions = new Map<string, ChatMessage[]>();
+  private readonly sessions = new Map<string, SessionEntry>();
 
   constructor(
     embeddingService: EmbeddingService,
@@ -36,6 +60,15 @@ export class RagService {
     this.vectorStore = vectorStore;
     this.llmProvider = llmProvider;
     this.dataDir = config.rag.dataDir;
+
+    const interval = setInterval(
+      () => this.cleanupExpiredSessions(),
+      SESSION_CLEANUP_INTERVAL_MS
+    );
+    // Allow Node to exit even if the interval is still pending
+    if (typeof (interval as NodeJS.Timeout).unref === "function") {
+      (interval as NodeJS.Timeout).unref();
+    }
   }
 
   // ── Document Management ──────────────────────────────────────────────────────
@@ -44,7 +77,8 @@ export class RagService {
     id: string,
     filename: string,
     buffer: Buffer,
-    mimeType: string
+    mimeType: string,
+    contentHash: string
   ): Promise<RagDocument> {
     await this.ensureDataDir();
 
@@ -54,19 +88,44 @@ export class RagService {
       mimeType,
       uploadedAt: new Date().toISOString(),
       chunkCount: 0,
-      status: "processing",
+      status: "queued",
+      contentHash,
     };
 
     await this.saveDocument(doc);
 
+    // Fire-and-forget: run pipeline in background without blocking the HTTP response
+    this.processDocumentAsync(id, filename, buffer, mimeType).catch((err: unknown) => {
+      console.error(`Background processing failed for document "${filename}" (${id}):`, err);
+    });
+
+    return doc;
+  }
+
+  private async processDocumentAsync(
+    id: string,
+    filename: string,
+    buffer: Buffer,
+    mimeType: string
+  ): Promise<void> {
+    const doc = (await this.getDocumentById(id))!;
+
     try {
+      doc.status = "parsing";
+      await this.saveDocument(doc);
       const { text } = await this.docProcessor.parseDocument(buffer, mimeType);
 
-      const chunks = this.docProcessor.buildChunks(text, {
-        chunkSize: config.rag.chunkSize,
-        chunkOverlap: config.rag.chunkOverlap,
-      }, id, filename);
+      doc.status = "chunking";
+      await this.saveDocument(doc);
+      const chunks = this.docProcessor.buildChunks(
+        text,
+        { chunkSize: config.rag.chunkSize, chunkOverlap: config.rag.chunkOverlap },
+        id,
+        filename
+      );
 
+      doc.status = "embedding";
+      await this.saveDocument(doc);
       const embedded = await this.embeddingService.embedChunks(chunks);
 
       for (const ec of embedded) {
@@ -80,10 +139,7 @@ export class RagService {
       doc.status = "error";
       doc.errorMessage = err instanceof Error ? err.message : "Unknown error";
       await this.saveDocument(doc);
-      throw err;
     }
-
-    return doc;
   }
 
   async deleteDocument(id: string): Promise<void> {
@@ -95,6 +151,20 @@ export class RagService {
 
   async listDocuments(): Promise<RagDocument[]> {
     return this.loadDocuments();
+  }
+
+  async getDocumentById(id: string): Promise<RagDocument | null> {
+    const docs = await this.loadDocuments();
+    return docs.find((d) => d.id === id) ?? null;
+  }
+
+  async findDocumentByHash(contentHash: string): Promise<RagDocument | null> {
+    const docs = await this.loadDocuments();
+    return docs.find((d) => d.contentHash === contentHash) ?? null;
+  }
+
+  async getChunk(chunkId: string): Promise<Chunk | null> {
+    return this.vectorStore.getChunk(chunkId);
   }
 
   // ── Chat ─────────────────────────────────────────────────────────────────────
@@ -148,10 +218,23 @@ export class RagService {
   // ── Private Helpers ──────────────────────────────────────────────────────────
 
   private getOrCreateSession(sessionId: string): ChatMessage[] {
-    if (!this.sessions.has(sessionId)) {
-      this.sessions.set(sessionId, []);
+    const existing = this.sessions.get(sessionId);
+    if (existing) {
+      existing.lastAccessedAt = Date.now();
+      return existing.messages;
     }
-    return this.sessions.get(sessionId)!;
+    const entry: SessionEntry = { messages: [], lastAccessedAt: Date.now() };
+    this.sessions.set(sessionId, entry);
+    return entry.messages;
+  }
+
+  private cleanupExpiredSessions(): void {
+    const cutoff = Date.now() - SESSION_TTL_MS;
+    for (const [id, entry] of this.sessions) {
+      if (entry.lastAccessedAt < cutoff) {
+        this.sessions.delete(id);
+      }
+    }
   }
 
   private async buildContext(
@@ -169,23 +252,26 @@ export class RagService {
       documentId: r.documentId,
       filename: r.chunk.metadata.filename,
       pageNumber: r.chunk.metadata.pageNumber,
-      excerpt: r.chunk.content.slice(0, 300),
+      excerpt: truncateAtSentenceBoundary(r.chunk.content, CITATION_EXCERPT_MAX_CHARS),
     }));
 
-    const contextBlocks = results
-      .map((r, i) => {
-        const page = r.chunk.metadata.pageNumber ? `, page ${r.chunk.metadata.pageNumber}` : "";
-        return `[${i + 1}] Source: ${r.chunk.metadata.filename}${page}\n${r.chunk.content}`;
-      })
-      .join("\n\n---\n\n")
-      .slice(0, MAX_CONTEXT_CHARS);
+    const contextBlocks = results.map((r, i) => {
+      const page = r.chunk.metadata.pageNumber ? `, page ${r.chunk.metadata.pageNumber}` : "";
+      return `[${i + 1}] Source: ${r.chunk.metadata.filename}${page}\n${r.chunk.content}`;
+    });
 
-    const systemPrompt = results.length === 0
-      ? "You are a helpful assistant. The knowledge base is empty or no relevant documents were found. Let the user know you cannot find relevant information to answer their question."
-      : `You are a helpful assistant. Answer the user's question using ONLY the context below. Cite sources by their number [1], [2], etc. If the answer is not in the context, say so clearly.
+    const contextText = truncateAtSentenceBoundary(
+      contextBlocks.join("\n\n---\n\n"),
+      MAX_CONTEXT_CHARS
+    );
+
+    const systemPrompt =
+      results.length === 0
+        ? "You are a helpful assistant. The knowledge base is empty or no relevant documents were found. Let the user know you cannot find relevant information to answer their question."
+        : `You are a helpful assistant. Answer the user's question using ONLY the context below. Cite sources by their number [1], [2], etc. If the answer is not in the context, say so clearly.
 
 Context:
-${contextBlocks}`;
+${contextText}`;
 
     return { systemPrompt, citations };
   }
