@@ -46,3 +46,6 @@ docker-compose.override.yml
 .claude/settings.local.json
 .claude/skills/
 .claude/worktrees/
+
+# RAC documents and uploads
+server/data

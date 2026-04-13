@@ -9,11 +9,3 @@ export function formatDate(isoString: string): string {
     day: "numeric",
   });
 }
-
-/**
- * Extracts the filename from a Cloudinary public ID.
- * e.g. "my-project/hero-image" → "hero-image"
- */
-export function cloudinaryFilename(publicId: string): string {
-  return publicId.split("/").pop() ?? publicId;
-}

@@ -4,42 +4,39 @@ inclusion: always
 
 ## Project Overview
 
-This is a **Next.js + Express TypeScript monorepo** — a "Google Services Starter Kit" demonstrating real-world integrations for a restaurant/business context. The frontend runs on Next.js (App Router) with React + Tailwind CSS; the backend is Express 5 on port 4000. There is no traditional database — **Google Sheets acts as the primary data store**.
+This is a **Next.js + Express TypeScript monorepo** implementing a local-first **Retrieval-Augmented Generation (RAG)** system. Users upload documents and chat with them using semantic search and grounded LLM generation with source citations. The frontend runs on Next.js (App Router) with React + Tailwind CSS; the backend is Express 5 on port 4000. There is no traditional database — vectors, chunks, and document metadata are persisted as JSON files in `RAG_DATA_DIR`.
 
-**Tech Stack:** Next.js 15 · React 19 · Express 5 · TypeScript · Tailwind CSS · Vitest · Cloudinary · Google APIs · Gemini AI
+**Tech Stack:** Next.js 15 · React 19 · Express 5 · TypeScript · Tailwind CSS · Vitest · Gemini AI (swappable to any OpenAI-compatible endpoint)
 
 ### Frontend Pages (`client/src/app/`)
 
-- **Home** (`/`) — Landing page with feature navigation cards
-- **Dashboard** (`/dashboard`) — Tabbed view of Calendar events, Sheets info, and Drive files
-- **Calendar** (`/calendar`) — Lists upcoming Google Calendar events
-- **Book Appointment** (`/book-appointment`) — Appointment scheduler with time-slot conflict detection
-- **Contact** (`/contact`) — Form that appends submissions to Google Sheets
-- **Email** (`/email`) — Sends transactional emails via Gmail OAuth2
-- **Menu** (`/menu`) — Restaurant menu fetched from Google Sheets with image galleries
-- **Location** (`/location`) — Business location map, ratings, and Google reviews
-- **Nearby Restaurants** (`/nearby-restaurants`) — Finds local restaurants without websites (lead generation)
-- **Admin** (`/admin`) — Password-protected Cloudinary image manager
-- **Menu Scanner** (`/menu-scanner`) — AI-powered OCR using Gemini Vision; exports structured data to Google Sheets
+- **Home** (`/`) — Landing page with RAG feature overview and navigation
+- **Documents** (`/documents`) — Admin-gated document upload, knowledge base listing, delete
+- **Chat** (`/chat`) — Streaming chat with document filter, message history, and citation cards
 
 ### Backend Services (`server/src/services/`)
 
-- **Google Calendar** — List and create events with attendee email notifications
-- **Google Sheets** — Read spreadsheet data; append contact form and menu rows
-- **Google Drive** — List and download files
-- **Gmail** — Send emails via OAuth2
-- **Gemini AI Chat** — Context-aware menu assistant chatbot (jailbreak-resistant)
-- **Gemini Vision (Menu Scanner)** — Multi-image OCR → structured JSON → Google Sheets export
-- **Google Places API** — Location details, ratings, and customer reviews
-- **Nearby Restaurants** — 5km radius search filtered to no-website businesses, cached 1 hour
-- **Cloudinary** — Image upload, list, and delete (admin-authenticated)
+- **`documentProcessingService`** — Parse PDF/text/markdown, recursive character chunking (`chunkSize: 1000`, `overlap: 200`)
+- **`embeddingService`** — Batches chunks (20 per call), wraps `IEmbeddingProvider`
+- **`ragService`** — Ingest pipeline (parse → chunk → embed → upsert), chat (embed query → vector search → grounded prompt → generate), streaming via SSE, in-memory session history
+
+### Provider Abstraction (`server/src/providers/`)
+
+- **`interfaces.ts`** — `IEmbeddingProvider`, `ILLMProvider`
+- **`gemini.ts`** — `text-embedding-004` (768 dims) + `gemini-2.5-flash`
+- **`openai.ts`** — OpenAI SDK with optional `baseURL` override (supports Ollama / local models)
+- **`factory.ts`** — `createProviders()` selects implementation from `AI_PROVIDER` env var
+
+### Vector Store (`server/src/vectorstore/`)
+
+- **`interfaces.ts`** — `IVectorStore`: `upsert`, `search`, `deleteByDocumentId`, `count`
+- **`localFileStore.ts`** — Cosine similarity over `vectorstore.json` in `RAG_DATA_DIR`; designed to be swapped for Qdrant/Pinecone/pgvector
 
 ### Cross-Cutting Concerns
 
-- In-memory TTL cache (`server/src/lib/cache.ts`) with prefix-based invalidation
-- Per-endpoint rate limiting (read: 60/min · write: 10/min · chat: 20/min · scan: 5/min · auth: 5/15min)
+- Per-endpoint rate limiting: read 60/min · write 10/min · upload 5/min · rag 20/min · auth 5/15min
 - Token-based admin auth with 24-hour sessions (`server/src/middleware/adminAuth.ts`)
-- File upload validation: max 5 images, 10 MB each, JPEG/PNG/WebP only
+- Document upload validation: single file, max 10 MB, PDF / text / markdown only (`field: document`)
 
 ---
 
