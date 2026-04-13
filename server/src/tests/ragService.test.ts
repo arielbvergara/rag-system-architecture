@@ -34,6 +34,7 @@ function makeFakeVectorStore(results: SearchResult[] = []): IVectorStore {
     search: vi.fn().mockResolvedValue(results),
     deleteByDocumentId: vi.fn().mockResolvedValue(undefined),
     count: vi.fn().mockResolvedValue(0),
+    getChunk: vi.fn().mockResolvedValue(null),
   };
 }
 
@@ -152,5 +153,59 @@ describe("RagService", () => {
     const history: ChatMessage[] = callArgs[1];
     // Only the new message should be in history, not the old one
     expect(history).toHaveLength(1);
+  });
+
+  // ── ingestDocument (async) ─────────────────────────────────────────────────
+
+  it("ingestDocument_ShouldReturnQueuedDocument_WhenCalled", async () => {
+    const embeddingProvider = makeFakeEmbeddingProvider();
+    const embeddingService = new EmbeddingService(embeddingProvider);
+    const vectorStore = makeFakeVectorStore();
+    const llmProvider = makeFakeLLMProvider();
+    const service = new RagService(embeddingService, vectorStore, llmProvider);
+
+    const docPromise = service.ingestDocument(
+      "doc-async",
+      "test.txt",
+      Buffer.from("Hello world"),
+      "text/plain",
+      "abc123hash"
+    );
+
+    const doc = await docPromise;
+    expect(doc.id).toBe("doc-async");
+    expect(doc.status).toBe("queued");
+    expect(doc.contentHash).toBe("abc123hash");
+  });
+
+  // ── getDocumentById ────────────────────────────────────────────────────────
+
+  it("getDocumentById_ShouldReturnNull_WhenDocumentDoesNotExist", async () => {
+    const result = await ragService.getDocumentById("nonexistent-id");
+    expect(result).toBeNull();
+  });
+
+  // ── findDocumentByHash ─────────────────────────────────────────────────────
+
+  it("findDocumentByHash_ShouldReturnNull_WhenNoMatchingHash", async () => {
+    const result = await ragService.findDocumentByHash("hash-that-does-not-exist");
+    expect(result).toBeNull();
+  });
+
+  // ── getChunk ───────────────────────────────────────────────────────────────
+
+  it("getChunk_ShouldDelegateToVectorStore_WhenCalled", async () => {
+    const chunk = makeChunk("doc-1", "Chunk content");
+    const vectorStore = makeFakeVectorStore();
+    (vectorStore.getChunk as ReturnType<typeof vi.fn>).mockResolvedValue(chunk);
+
+    const embeddingProvider = makeFakeEmbeddingProvider();
+    const embeddingService = new EmbeddingService(embeddingProvider);
+    const llmProvider = makeFakeLLMProvider();
+    const service = new RagService(embeddingService, vectorStore, llmProvider);
+
+    const result = await service.getChunk(chunk.id);
+    expect(result).toEqual(chunk);
+    expect(vectorStore.getChunk).toHaveBeenCalledWith(chunk.id);
   });
 });

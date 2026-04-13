@@ -1,6 +1,6 @@
 "use client";
 
-import type { RagDocument } from "@/types";
+import type { DocumentStatus, RagDocument } from "@/types";
 import { formatDate } from "@/lib/utils";
 
 interface DocumentListProps {
@@ -9,10 +9,22 @@ interface DocumentListProps {
   deleting: string | null;
 }
 
-const STATUS_STYLES: Record<RagDocument["status"], string> = {
-  processing: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  ready: "bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]",
-  error: "bg-[var(--error-bg)] text-[var(--error)] border border-[var(--error-border)]",
+const STATUS_STYLES: Record<DocumentStatus, string> = {
+  queued:    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  parsing:   "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  chunking:  "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  embedding: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  ready:     "bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]",
+  error:     "bg-[var(--error-bg)] text-[var(--error)] border border-[var(--error-border)]",
+};
+
+const STATUS_LABELS: Record<DocumentStatus, string> = {
+  queued:    "Queued",
+  parsing:   "Parsing…",
+  chunking:  "Chunking…",
+  embedding: "Embedding…",
+  ready:     "Ready",
+  error:     "Error",
 };
 
 export function DocumentList({ documents, onDelete, deleting }: DocumentListProps) {
@@ -52,7 +64,7 @@ export function DocumentList({ documents, onDelete, deleting }: DocumentListProp
               </td>
               <td className="px-4 py-3">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[doc.status]}`}>
-                  {doc.status}
+                  {STATUS_LABELS[doc.status]}
                 </span>
                 {doc.errorMessage && (
                   <p className="text-xs text-[var(--error)] mt-1 max-w-[200px] truncate">{doc.errorMessage}</p>

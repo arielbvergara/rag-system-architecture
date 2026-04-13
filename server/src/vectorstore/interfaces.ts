@@ -12,4 +12,5 @@ export interface IVectorStore {
   search(queryVector: number[], topK: number, filter?: VectorFilter): Promise<SearchResult[]>;
   deleteByDocumentId(documentId: string): Promise<void>;
   count(): Promise<number>;
+  getChunk(chunkId: string): Promise<Chunk | null>;
 }

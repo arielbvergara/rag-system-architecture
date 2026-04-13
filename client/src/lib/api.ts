@@ -1,4 +1,4 @@
-import type { ApiResponse, RagDocument, RagResponse, StreamChunk } from "@/types";
+import type { ApiResponse, RagDocument, RagResponse, StreamChunk, ChunkDetail } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -60,6 +60,11 @@ export const documents = {
 
     return response.json();
   },
+
+  getStatus: (id: string) => request<RagDocument>(`/documents/${id}/status`),
+
+  getChunk: (documentId: string, chunkId: string) =>
+    request<ChunkDetail>(`/documents/${documentId}/chunks/${chunkId}`),
 
   delete: (id: string, token: string) =>
     request(`/documents/${id}`, {
