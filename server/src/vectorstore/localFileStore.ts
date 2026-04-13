@@ -102,4 +102,9 @@ export class LocalFileVectorStore implements IVectorStore {
     await this.load();
     return this.data.vectors.length;
   }
+
+  async getChunk(chunkId: string): Promise<Chunk | null> {
+    await this.load();
+    return this.data.chunks[chunkId] ?? null;
+  }
 }

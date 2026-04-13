@@ -112,6 +112,22 @@ describe("LocalFileVectorStore", () => {
     await expect(store.deleteByDocumentId("nonexistent")).resolves.not.toThrow();
   });
 
+  // ── getChunk ───────────────────────────────────────────────────────────────
+
+  it("getChunk_ShouldReturnChunk_WhenChunkExists", async () => {
+    const chunk = makeChunk("doc-1");
+    await store.upsert(chunk.id, makeVector(), chunk);
+    const found = await store.getChunk(chunk.id);
+    expect(found).not.toBeNull();
+    expect(found?.id).toBe(chunk.id);
+    expect(found?.metadata.documentId).toBe("doc-1");
+  });
+
+  it("getChunk_ShouldReturnNull_WhenChunkDoesNotExist", async () => {
+    const result = await store.getChunk("nonexistent-chunk-id");
+    expect(result).toBeNull();
+  });
+
   // ── persistence ────────────────────────────────────────────────────────────
 
   it("search_ShouldReturnResults_WhenStoreIsReloadedFromDisk", async () => {
