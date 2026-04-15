@@ -1,4 +1,6 @@
-import Link from "next/link";
+import { Card } from "@/components/ui/Card";
+import { IconCircle } from "@/components/ui/IconCircle";
+import { LinkButton } from "@/components/ui/LinkButton";
 
 const FEATURES = [
   {
@@ -86,33 +88,23 @@ export default function Home() {
             Upload any document and ask questions. Answers are grounded in your content with source citations.
           </p>
           <div className="flex gap-3 justify-center pt-2">
-            <Link
-              href="/documents"
-              className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] transition-colors duration-150 cursor-pointer"
-            >
-              Upload Documents
-            </Link>
-            <Link
-              href="/chat"
-              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--border)] transition-colors duration-150 cursor-pointer"
-            >
-              Start Chatting
-            </Link>
+            <LinkButton href="/documents">Upload Documents</LinkButton>
+            <LinkButton href="/chat" variant="secondary">Start Chatting</LinkButton>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-left text-sm">
           {FEATURES.map((feature) => (
-            <div
+            <Card
               key={feature.title}
-              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
+              className="p-4 shadow-sm"
             >
-              <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center mb-3">
+              <IconCircle size="sm" shape="square" className="mb-3">
                 {feature.icon}
-              </div>
+              </IconCircle>
               <h3 className="font-semibold text-[var(--foreground)]">{feature.title}</h3>
               <p className="text-[var(--muted)] mt-1 text-xs leading-relaxed">{feature.desc}</p>
-            </div>
+            </Card>
           ))}
         </div>
 
