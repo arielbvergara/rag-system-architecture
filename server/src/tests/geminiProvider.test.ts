@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GeminiLLMProvider, isRetryableGeminiError } from "../providers/gemini";
+import { GeminiEmbeddingProvider, GeminiLLMProvider, isRetryableGeminiError } from "../providers/gemini";
 
 // ── Hoisted mock handles ───────────────────────────────────────────────────────
 // vi.hoisted() runs before vi.mock() hoisting, making the refs available
@@ -23,12 +23,16 @@ vi.mock("@google/generative-ai", () => ({
   }),
 }));
 
-// GeminiEmbeddingProvider uses @google/genai — stub so the import resolves.
+const { mockEmbedContent } = vi.hoisted(() => {
+  const mockEmbedContent = vi.fn().mockResolvedValue({ embeddings: [{ values: Array(768).fill(0.1) }] });
+  return { mockEmbedContent };
+});
+
 vi.mock("@google/genai", () => ({
   GoogleGenAI: vi.fn().mockImplementation(function () {
     return {
       models: {
-        embedContent: vi.fn().mockResolvedValue({ embeddings: [{ values: [0.1] }] }),
+        embedContent: mockEmbedContent,
       },
     };
   }),
@@ -41,6 +45,53 @@ function makeError(statusPrefix: string): Error {
 }
 
 const HISTORY = [{ role: "user" as const, content: "Hello?" }];
+
+// ── GeminiEmbeddingProvider ───────────────────────────────────────────────────
+
+describe("GeminiEmbeddingProvider", () => {
+  let provider: GeminiEmbeddingProvider;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    provider = new GeminiEmbeddingProvider("fake-api-key");
+  });
+
+  it("embed_ShouldPassOutputDimensionality_WhenCalled", async () => {
+    await provider.embed(["test text"]);
+
+    expect(mockEmbedContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gemini-embedding-001",
+        config: expect.objectContaining({ outputDimensionality: 768 }),
+      })
+    );
+  });
+
+  it("embed_ShouldReturnEmbeddingVectors_WhenApiResponds", async () => {
+    const result = await provider.embed(["test text"]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(768);
+  });
+
+  it("embed_ShouldCallApiOncePerText_WhenMultipleTextsProvided", async () => {
+    await provider.embed(["text one", "text two", "text three"]);
+
+    expect(mockEmbedContent).toHaveBeenCalledTimes(3);
+  });
+
+  it("getDimensions_ShouldReturn768_WhenCalled", () => {
+    expect(provider.getDimensions()).toBe(768);
+  });
+
+  it("embed_ShouldReturnEmptyArray_WhenApiReturnsNoEmbeddings", async () => {
+    mockEmbedContent.mockResolvedValueOnce({ embeddings: [{}] });
+
+    const result = await provider.embed(["test"]);
+
+    expect(result[0]).toEqual([]);
+  });
+});
 
 // ── isRetryableGeminiError ─────────────────────────────────────────────────────
 

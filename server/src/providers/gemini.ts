@@ -52,6 +52,7 @@ export class GeminiEmbeddingProvider implements IEmbeddingProvider {
       const result = await this.ai.models.embedContent({
         model: EMBEDDING_MODEL,
         contents: text,
+        config: { outputDimensionality: EMBEDDING_DIMENSIONS },
       });
       results.push(result.embeddings?.[0]?.values ?? []);
     }

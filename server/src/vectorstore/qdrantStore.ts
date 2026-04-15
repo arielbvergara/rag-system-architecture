@@ -10,6 +10,53 @@ export interface QdrantVectorStoreOptions {
   vectorSize: number;
 }
 
+/**
+ * Extract a useful message from a Qdrant client error.
+ *
+ * The underlying `@qdrant/openapi-typescript-fetch` throws an `ApiError`
+ * whose `.message` is just `response.statusText` (e.g. "Bad Request"). The
+ * actionable detail lives in `.data` (the parsed response body) — Qdrant
+ * typically returns `{ status: { error: "…dim mismatch…" }, time: … }`.
+ * Falling back to `getErrorMessage` alone hides the root cause.
+ */
+function formatQdrantError(err: unknown): string {
+  if (typeof err === "object" && err !== null) {
+    const maybeApi = err as {
+      status?: number;
+      statusText?: string;
+      data?: unknown;
+      message?: string;
+    };
+
+    if (typeof maybeApi.status === "number") {
+      const bodyDetail = extractQdrantErrorDetail(maybeApi.data);
+      const prefix = `${maybeApi.status}${maybeApi.statusText ? ` (${maybeApi.statusText})` : ""}`;
+      if (bodyDetail) return `${prefix} — ${bodyDetail}`;
+      if (maybeApi.message) return `${prefix} — ${maybeApi.message}`;
+      return prefix;
+    }
+  }
+  return getErrorMessage(err, "unknown");
+}
+
+function extractQdrantErrorDetail(data: unknown): string | null {
+  if (typeof data === "string" && data.length > 0) return data;
+  if (typeof data !== "object" || data === null) return null;
+  const obj = data as { status?: unknown; error?: unknown; detail?: unknown };
+  if (typeof obj.error === "string") return obj.error;
+  if (typeof obj.detail === "string") return obj.detail;
+  if (typeof obj.status === "object" && obj.status !== null) {
+    const status = obj.status as { error?: unknown };
+    if (typeof status.error === "string") return status.error;
+  }
+  if (typeof obj.status === "string") return obj.status;
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return null;
+  }
+}
+
 // Flat payload shape: mirrors Chunk.metadata plus `content`, so a single
 // `retrieve` call reconstructs the full Chunk without a secondary store.
 interface QdrantChunkPayload {
@@ -56,7 +103,13 @@ export class QdrantVectorStore implements IVectorStore {
     try {
       const { collections } = await this.client.getCollections();
       const exists = collections.some((c) => c.name === this.collectionName);
-      if (exists) return;
+      if (exists) {
+        // Existing collection: validate vector size up-front so we fail with
+        // a clear, actionable message instead of the opaque "Bad Request"
+        // Qdrant returns on every subsequent upsert when dims disagree.
+        await this.assertDimensionMatches();
+        return;
+      }
 
       await this.client.createCollection(this.collectionName, {
         vectors: { size: this.vectorSize, distance: VECTOR_DISTANCE },
@@ -73,9 +126,49 @@ export class QdrantVectorStore implements IVectorStore {
       }
     } catch (err) {
       this.initPromise = null;
+      // Dimension-mismatch errors are already descriptive — don't re-wrap.
+      if (err instanceof Error && err.message.includes("vector size")) throw err;
       throw new Error(
-        `Qdrant collection init failed: ${getErrorMessage(err, "unknown")}`,
+        `Qdrant collection init failed: ${formatQdrantError(err)}`,
         { cause: err }
+      );
+    }
+  }
+
+  /**
+   * Read the existing collection's configured vector size and compare it to
+   * the current embedding provider's dimensions. On mismatch, throw an error
+   * that names both numbers and the escape hatches (rename collection or
+   * delete the existing one).
+   */
+  private async assertDimensionMatches(): Promise<void> {
+    const info = (await this.client.getCollection(this.collectionName)) as {
+      config?: {
+        params?: {
+          vectors?: { size?: number } | Record<string, { size?: number }>;
+        };
+      };
+    };
+    const vectors = info.config?.params?.vectors;
+    if (!vectors) return; // Unknown shape — let the upsert surface it.
+
+    // Qdrant returns either a single config `{ size, distance }` or a named-
+    // vectors map `{ myVec: { size, distance } }`. We only create single-
+    // vector collections, so the first branch is the common path.
+    const existingSize =
+      typeof (vectors as { size?: number }).size === "number"
+        ? (vectors as { size: number }).size
+        : Object.values(vectors as Record<string, { size?: number }>)
+            .map((v) => v?.size)
+            .find((s): s is number => typeof s === "number");
+
+    if (typeof existingSize !== "number") return;
+
+    if (existingSize !== this.vectorSize) {
+      throw new Error(
+        `Qdrant collection "${this.collectionName}" was created with vector size ${existingSize} ` +
+          `but the current embedding provider produces size ${this.vectorSize}. ` +
+          `Set QDRANT_COLLECTION to a different name, or delete the existing collection in Qdrant.`
       );
     }
   }
@@ -96,7 +189,7 @@ export class QdrantVectorStore implements IVectorStore {
         ],
       });
     } catch (err) {
-      throw new Error(`Qdrant upsert failed: ${getErrorMessage(err, "unknown")}`, { cause: err });
+      throw new Error(`Qdrant upsert failed: ${formatQdrantError(err)}`, { cause: err });
     }
   }
 
@@ -127,7 +220,7 @@ export class QdrantVectorStore implements IVectorStore {
         };
       });
     } catch (err) {
-      throw new Error(`Qdrant search failed: ${getErrorMessage(err, "unknown")}`, { cause: err });
+      throw new Error(`Qdrant search failed: ${formatQdrantError(err)}`, { cause: err });
     }
   }
 
@@ -141,7 +234,7 @@ export class QdrantVectorStore implements IVectorStore {
         },
       });
     } catch (err) {
-      throw new Error(`Qdrant delete failed: ${getErrorMessage(err, "unknown")}`, { cause: err });
+      throw new Error(`Qdrant delete failed: ${formatQdrantError(err)}`, { cause: err });
     }
   }
 
@@ -151,7 +244,7 @@ export class QdrantVectorStore implements IVectorStore {
       const result = await this.client.count(this.collectionName, { exact: true });
       return result.count;
     } catch (err) {
-      throw new Error(`Qdrant count failed: ${getErrorMessage(err, "unknown")}`, { cause: err });
+      throw new Error(`Qdrant count failed: ${formatQdrantError(err)}`, { cause: err });
     }
   }
 
@@ -168,7 +261,7 @@ export class QdrantVectorStore implements IVectorStore {
       const payload = r.payload as unknown as QdrantChunkPayload;
       return this.payloadToChunk(String(r.id), payload);
     } catch (err) {
-      throw new Error(`Qdrant retrieve failed: ${getErrorMessage(err, "unknown")}`, { cause: err });
+      throw new Error(`Qdrant retrieve failed: ${formatQdrantError(err)}`, { cause: err });
     }
   }
 

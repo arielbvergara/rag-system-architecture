@@ -149,6 +149,19 @@ const { FakeQdrantClient, clientRef } = vi.hoisted(() => {
         .filter((p): p is FakePoint => p !== undefined)
         .map((p) => ({ id: p.id, version: 0, payload: p.payload }));
     }
+
+    async getCollection(name: string) {
+      const coll = this.collections.get(name);
+      if (!coll) throw new Error(`unknown collection: ${name}`);
+      return {
+        status: "green",
+        config: {
+          params: {
+            vectors: { size: coll.vectorSize, distance: coll.distance },
+          },
+        },
+      };
+    }
   }
 
   // Shared ref so tests can grab the most-recently-constructed fake.
@@ -264,6 +277,51 @@ describe("QdrantVectorStore", () => {
     vi.spyOn(getLatestClient(), "delete").mockRejectedValueOnce(new Error("timeout"));
     await expect(store.deleteByDocumentId("doc-1")).rejects.toThrow(
       /Qdrant delete failed: timeout/
+    );
+  });
+
+  it("upsert_ShouldIncludeQdrantErrorBody_WhenClientThrowsApiError", async () => {
+    await store.count();
+    // Simulate the ApiError shape from @qdrant/openapi-typescript-fetch:
+    // plain Error.message is just "Bad Request", the useful detail is in `data`.
+    const apiError = Object.assign(new Error("Bad Request"), {
+      status: 400,
+      statusText: "Bad Request",
+      data: {
+        status: { error: "Wrong input: Vector dimension error: expected dim: 768, got 1536" },
+        time: 0.001,
+      },
+    });
+    vi.spyOn(getLatestClient(), "upsert").mockRejectedValueOnce(apiError);
+    const chunk = makeChunk("doc-1");
+    await expect(store.upsert(chunk.id, makeVector(), chunk)).rejects.toThrow(
+      /Vector dimension error: expected dim: 768, got 1536/
+    );
+  });
+
+  // ── Dimension mismatch detection ───────────────────────────────────────────
+
+  it("ensureCollection_ShouldThrowDescriptiveError_WhenExistingCollectionHasDifferentVectorSize", async () => {
+    // Construct a store expecting 768-dim vectors, then make the client
+    // report a pre-existing collection whose vectors are 4-dim. The very
+    // first operation should fail loudly instead of waiting for an opaque
+    // "Bad Request" on upsert.
+    const mismatched = new QdrantVectorStore({
+      url: "http://localhost:6333",
+      collectionName: COLLECTION,
+      vectorSize: 768,
+    });
+    const fake = getLatestClient();
+    vi.spyOn(fake, "getCollections").mockResolvedValueOnce({
+      collections: [{ name: COLLECTION }],
+    });
+    vi.spyOn(fake, "getCollection").mockResolvedValueOnce({
+      status: "green",
+      config: { params: { vectors: { size: 4, distance: "Cosine" } } },
+    });
+
+    await expect(mismatched.count()).rejects.toThrow(
+      /vector size 4 but the current embedding provider produces size 768/
     );
   });
 
