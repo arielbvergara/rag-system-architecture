@@ -1,8 +1,7 @@
 import { getRagService } from "../services/ragService";
 import { EmbeddingService } from "../services/embeddingService";
-import { LocalFileVectorStore } from "../vectorstore/localFileStore";
+import { createVectorStore } from "../vectorstore/factory";
 import { createProviders } from "../providers/factory";
-import { config } from "../config";
 
 type RagServiceInstance = ReturnType<typeof getRagService>;
 
@@ -11,7 +10,7 @@ let instance: RagServiceInstance | null = null;
 export function getRagContainer(): RagServiceInstance {
   if (!instance) {
     const { embedding, llm } = createProviders();
-    const vectorStore = new LocalFileVectorStore(config.rag.dataDir);
+    const vectorStore = createVectorStore(embedding);
     const embeddingService = new EmbeddingService(embedding);
     instance = getRagService(embeddingService, vectorStore, llm);
   }

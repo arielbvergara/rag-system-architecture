@@ -4,7 +4,7 @@ inclusion: always
 
 ## Project Overview
 
-This is a **Next.js + Express TypeScript monorepo** implementing a local-first **Retrieval-Augmented Generation (RAG)** system. Users upload documents and chat with them using semantic search and grounded LLM generation with source citations. The frontend runs on Next.js (App Router) with React + Tailwind CSS; the backend is Express 5 on port 4000. There is no traditional database — vectors, chunks, and document metadata are persisted as JSON files in `RAG_DATA_DIR`.
+This is a **Next.js + Express TypeScript monorepo** implementing a **Retrieval-Augmented Generation (RAG)** system. Users upload documents and chat with them using semantic search and grounded LLM generation with source citations. The frontend runs on Next.js (App Router) with React + Tailwind CSS; the backend is Express 5 on port 4000. Document metadata lives in JSON files in `RAG_DATA_DIR`; vectors live either in the same JSON file (default) or in a Qdrant collection, selected via `VECTOR_STORE_TYPE`.
 
 **Tech Stack:** Next.js 16 · React 19 · Express 5 · TypeScript · Tailwind CSS 4 · Vitest · Gemini AI (swappable to any OpenAI-compatible endpoint)
 
@@ -42,8 +42,11 @@ This is a **Next.js + Express TypeScript monorepo** implementing a local-first *
 
 ### Vector Store (`server/src/vectorstore/`)
 
-- **`interfaces.ts`** — `IVectorStore`: `upsert`, `search`, `deleteByDocumentId`, `count`
-- **`localFileStore.ts`** — Cosine similarity over `vectorstore.json` in `RAG_DATA_DIR`; designed to be swapped for Qdrant/Pinecone/pgvector
+- **`interfaces.ts`** — `IVectorStore`: `upsert`, `search`, `deleteByDocumentId`, `count`, `getChunk`
+- **`localFileStore.ts`** — Cosine similarity over `vectorstore.json` in `RAG_DATA_DIR` (default)
+- **`qdrantStore.ts`** — Qdrant-backed implementation. Lazily creates the collection on first use and indexes `documentId` so per-document filters and deletes stay fast
+- **`factory.ts`** — `createVectorStore(embedding)` picks the implementation from `VECTOR_STORE_TYPE` (`local` | `qdrant`); passes `embedding.getDimensions()` to Qdrant so the collection size matches the active embedding model
+- **Shared test contract** — `server/src/tests/vectorstoreContract.ts` runs the same behavioral suite against every `IVectorStore`. Add it via `runVectorStoreContract(() => new MyStore(...))` when introducing a new backend
 
 ### Cross-Cutting Concerns
 

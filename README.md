@@ -9,7 +9,7 @@ A full-stack monorepo with **Next.js** (frontend) + **Express** (backend API) im
 | Frontend    | Next.js 16, React 19, TypeScript, Tailwind CSS 4 |
 | Backend     | Express 5, TypeScript, Node 20                  |
 | AI Provider | Gemini (`gemini-2.5-flash` with lite fallback chain + `gemini-embedding-001`) or any OpenAI-compatible endpoint |
-| Vector Store | Local JSON file (cosine similarity)            |
+| Vector Store | Local JSON file (default) or Qdrant (managed / self-hosted) |
 | Document Parsing | `pdf-parse` (PDF), native UTF-8 (text/markdown) |
 | Testing     | Vitest                                          |
 | Package Mgr | pnpm (workspaces)                               |
@@ -35,9 +35,9 @@ A full-stack monorepo with **Next.js** (frontend) + **Express** (backend API) im
 │       ├── providers/       # IEmbeddingProvider / ILLMProvider + Gemini & OpenAI impls
 │       ├── routes/          # documents, rag, admin (+ index.ts aggregator)
 │       ├── services/        # documentProcessingService, embeddingService, ragService
-│       ├── tests/           # Vitest unit tests
+│       ├── tests/           # Vitest unit tests (incl. vectorstoreContract)
 │       ├── types/           # Server-side TypeScript types
-│       ├── vectorstore/     # IVectorStore interface + LocalFileVectorStore
+│       ├── vectorstore/     # IVectorStore interface + Local & Qdrant impls + factory
 │       └── index.ts         # Entry point
 ├── docker/
 │   ├── client.Dockerfile
@@ -126,6 +126,13 @@ RAG_TOP_K=5                  # number of chunks retrieved per query
 RAG_CHUNK_SIZE=1000          # target characters per chunk
 RAG_CHUNK_OVERLAP=200        # overlap between adjacent chunks
 RAG_MAX_DOCS=50              # maximum documents in the knowledge base
+
+# Vector Store — "local" (default, JSON file) or "qdrant"
+VECTOR_STORE_TYPE=local
+# Required when VECTOR_STORE_TYPE=qdrant:
+#   QDRANT_URL=http://localhost:6333          # or https://<cluster>.cloud.qdrant.io:6333
+#   QDRANT_API_KEY=your_qdrant_api_key        # any non-empty value for local Docker
+#   QDRANT_COLLECTION=documents_chunks        # optional override
 ```
 
 ## API Endpoints
@@ -194,7 +201,14 @@ The system uses provider interfaces (`IEmbeddingProvider`, `ILLMProvider`) so th
 - **OpenAI** — set `AI_PROVIDER=openai` and `OPENAI_API_KEY`
 - **Ollama / local models** — set `AI_PROVIDER=openai`, `OPENAI_BASE_URL=http://localhost:11434/v1`, and the model names you have pulled
 
-The vector store is similarly abstracted behind `IVectorStore`. `LocalFileVectorStore` persists to JSON files in `RAG_DATA_DIR` and is ready to be replaced with Qdrant, Pinecone, or pgvector.
+## Swapping Vector Stores
+
+The vector store is abstracted behind `IVectorStore` and selected by `createVectorStore(embedding)` in `server/src/vectorstore/factory.ts`:
+
+- **Local** (default) — set `VECTOR_STORE_TYPE=local` (or omit). Persists to `vectorstore.json` in `RAG_DATA_DIR`. Good for development and small corpora; no external dependencies.
+- **Qdrant** — set `VECTOR_STORE_TYPE=qdrant` plus `QDRANT_URL` and `QDRANT_API_KEY`. The collection is created lazily on first write with `size = embedding.getDimensions()` and `Cosine` distance; a payload index is added on `documentId` so per-document filters and deletes stay fast as the corpus grows. Works with Qdrant Cloud or a self-hosted instance (see `docker-compose.yml` for a local service).
+
+Every `IVectorStore` implementation is verified against the shared contract in `server/src/tests/vectorstoreContract.ts`, so a new backend (Pinecone, Weaviate, pgvector, etc.) only needs to implement the interface and wire a factory branch.
 
 ## License
 
