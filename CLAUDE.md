@@ -6,13 +6,19 @@ inclusion: always
 
 This is a **Next.js + Express TypeScript monorepo** implementing a local-first **Retrieval-Augmented Generation (RAG)** system. Users upload documents and chat with them using semantic search and grounded LLM generation with source citations. The frontend runs on Next.js (App Router) with React + Tailwind CSS; the backend is Express 5 on port 4000. There is no traditional database — vectors, chunks, and document metadata are persisted as JSON files in `RAG_DATA_DIR`.
 
-**Tech Stack:** Next.js 15 · React 19 · Express 5 · TypeScript · Tailwind CSS · Vitest · Gemini AI (swappable to any OpenAI-compatible endpoint)
+**Tech Stack:** Next.js 16 · React 19 · Express 5 · TypeScript · Tailwind CSS 4 · Vitest · Gemini AI (swappable to any OpenAI-compatible endpoint)
 
 ### Frontend Pages (`client/src/app/`)
 
 - **Home** (`/`) — Landing page with RAG feature overview and navigation
 - **Documents** (`/documents`) — Admin-gated document upload, knowledge base listing, delete
 - **Chat** (`/chat`) — Streaming chat with document filter, message history, and citation cards
+- **Route handler** (`api/rag/chat/stream/route.ts`) — Next.js BFF proxy that forwards SSE streams from Express (uses `BACKEND_URL` server-side to bypass the `/api` rewrite)
+
+### Frontend Utilities
+
+- **`client/src/hooks/useSessionStorage.ts`** — SSR-safe hook for persisting state to `sessionStorage`; reuse it instead of writing ad-hoc `window.sessionStorage` code
+- **`client/src/lib/documentStatus.ts`** — Shared constants for document processing status: `STATUS_STYLES` (CSS class maps), `STATUS_LABELS`, `STEP_LABELS`, `PROCESSING_STEPS`; import from here rather than duplicating status strings
 
 ### Backend Services (`server/src/services/`)
 
@@ -20,10 +26,17 @@ This is a **Next.js + Express TypeScript monorepo** implementing a local-first *
 - **`embeddingService`** — Batches chunks (20 per call), wraps `IEmbeddingProvider`
 - **`ragService`** — Ingest pipeline (parse → chunk → embed → upsert), chat (embed query → vector search → grounded prompt → generate), streaming via SSE, in-memory session history
 
+### Server Utilities (`server/src/lib/`)
+
+- **`cache.ts`** — In-memory TTL cache
+- **`errorUtils.ts`** — `getErrorMessage()` helper for safe error-to-string conversion; reuse instead of inline `err instanceof Error ? err.message : String(err)`
+- **`validateParams.ts`** — `validateChatParams()` for request-body validation on RAG chat endpoints
+- **`ragContainer.ts`** — Dependency-injection container wiring providers, vector store, and services together
+
 ### Provider Abstraction (`server/src/providers/`)
 
 - **`interfaces.ts`** — `IEmbeddingProvider`, `ILLMProvider`
-- **`gemini.ts`** — `text-embedding-004` (768 dims) + `gemini-2.5-flash`
+- **`gemini.ts`** — `gemini-embedding-001` (768 dims) + generation chain `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-2-flash` → `gemini-2-flash-lite` (retries on 503/429/5xx)
 - **`openai.ts`** — OpenAI SDK with optional `baseURL` override (supports Ollama / local models)
 - **`factory.ts`** — `createProviders()` selects implementation from `AI_PROVIDER` env var
 
@@ -37,6 +50,7 @@ This is a **Next.js + Express TypeScript monorepo** implementing a local-first *
 - Per-endpoint rate limiting: read 60/min · write 10/min · upload 5/min · rag 20/min · auth 5/15min
 - Token-based admin auth with 24-hour sessions (`server/src/middleware/adminAuth.ts`)
 - Document upload validation: single file, max 10 MB, PDF / text / markdown only (`field: document`)
+- Global error handling via `server/src/middleware/error.ts` — routes throw; the middleware formats the response
 
 ---
 

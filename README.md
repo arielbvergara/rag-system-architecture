@@ -6,9 +6,9 @@ A full-stack monorepo with **Next.js** (frontend) + **Express** (backend API) im
 
 | Layer       | Technology                                      |
 | ----------- | ----------------------------------------------- |
-| Frontend    | Next.js 15, React 19, TypeScript, Tailwind CSS  |
+| Frontend    | Next.js 16, React 19, TypeScript, Tailwind CSS 4 |
 | Backend     | Express 5, TypeScript, Node 20                  |
-| AI Provider | Gemini (`gemini-2.5-flash` + `text-embedding-004`) or any OpenAI-compatible endpoint |
+| AI Provider | Gemini (`gemini-2.5-flash` with lite fallback chain + `gemini-embedding-001`) or any OpenAI-compatible endpoint |
 | Vector Store | Local JSON file (cosine similarity)            |
 | Document Parsing | `pdf-parse` (PDF), native UTF-8 (text/markdown) |
 | Testing     | Vitest                                          |
@@ -21,17 +21,19 @@ A full-stack monorepo with **Next.js** (frontend) + **Express** (backend API) im
 ├── client/                  # Next.js frontend (port 3000)
 │   └── src/
 │       ├── app/             # App Router pages (/, /documents, /chat)
+│       │   └── api/         # Route handlers (e.g. rag/chat/stream SSE proxy to Express)
 │       ├── components/ui/   # ChatInterface, DocumentList, DocumentUploader, CitationCard, …
-│       ├── lib/             # API client (api.ts), utils
+│       ├── hooks/           # Shared React hooks (useSessionStorage)
+│       ├── lib/             # API client (api.ts), documentStatus constants, utils
 │       └── types/           # Shared TypeScript types
 ├── server/                  # Express backend (port 4000)
 │   └── src/
 │       ├── config/          # App config (AI provider, RAG settings)
 │       ├── controllers/     # documentsController, ragController, adminController
-│       ├── lib/             # In-memory TTL cache
-│       ├── middleware/      # adminAuth, rateLimit, upload
+│       ├── lib/             # TTL cache, errorUtils, validateParams, ragContainer (DI)
+│       ├── middleware/      # adminAuth, rateLimit, upload, error (global handler)
 │       ├── providers/       # IEmbeddingProvider / ILLMProvider + Gemini & OpenAI impls
-│       ├── routes/          # documents, rag, admin
+│       ├── routes/          # documents, rag, admin (+ index.ts aggregator)
 │       ├── services/        # documentProcessingService, embeddingService, ragService
 │       ├── tests/           # Vitest unit tests
 │       ├── types/           # Server-side TypeScript types
@@ -101,6 +103,10 @@ NODE_ENV=development
 PORT=4000
 CLIENT_URL=http://localhost:3000
 
+# Client → Server (Next.js)
+NEXT_PUBLIC_API_URL=http://localhost:4000/api   # Browser-exposed API base
+BACKEND_URL=http://localhost:4000/api           # Server-side only; used by Next.js Route Handlers to reach Express directly (bypasses /api rewrite — required for SSE streaming)
+
 # Admin (protects document upload and delete)
 ADMIN_PASSWORD=your_admin_password
 
@@ -140,11 +146,13 @@ All endpoints are prefixed with `/api`.
 
 ### Documents
 
-| Method   | Path             | Auth  | Description                                      |
-| -------- | ---------------- | ----- | ------------------------------------------------ |
-| `POST`   | `/documents`     | Admin | Upload a document (PDF / text / markdown, max 10 MB). Triggers chunking + embedding. |
-| `GET`    | `/documents`     | —     | List all documents with status, chunk count, and upload date. |
-| `DELETE` | `/documents/:id` | Admin | Delete a document and all its vectors/chunks.    |
+| Method   | Path                              | Auth  | Description                                      |
+| -------- | --------------------------------- | ----- | ------------------------------------------------ |
+| `POST`   | `/documents`                      | Admin | Upload a document (PDF / text / markdown, max 10 MB). Triggers chunking + embedding. |
+| `GET`    | `/documents`                      | —     | List all documents with status, chunk count, and upload date. |
+| `GET`    | `/documents/:id/status`           | —     | Poll processing status for a single document (queued / parsing / chunking / embedding / ready / error). |
+| `GET`    | `/documents/:id/chunks/:chunkId`  | —     | Fetch a specific chunk's text and metadata (used by citation cards). |
+| `DELETE` | `/documents/:id`                  | Admin | Delete a document and all its vectors/chunks.    |
 
 ### RAG Chat
 
@@ -182,7 +190,7 @@ All endpoints are prefixed with `/api`.
 
 The system uses provider interfaces (`IEmbeddingProvider`, `ILLMProvider`) so the backend can be swapped without touching business logic:
 
-- **Gemini** (default) — set `AI_PROVIDER=gemini` and `GEMINI_API_KEY`
+- **Gemini** (default) — set `AI_PROVIDER=gemini` and `GEMINI_API_KEY`. The generation provider automatically falls back through `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-2-flash` → `gemini-2-flash-lite` on retryable errors (503 / 429 / 5xx).
 - **OpenAI** — set `AI_PROVIDER=openai` and `OPENAI_API_KEY`
 - **Ollama / local models** — set `AI_PROVIDER=openai`, `OPENAI_BASE_URL=http://localhost:11434/v1`, and the model names you have pulled
 
