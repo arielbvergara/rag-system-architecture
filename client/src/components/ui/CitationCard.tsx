@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Citation, ChunkDetail } from "@/types";
 import { api } from "@/lib/api";
+import { SkeletonPulse } from "@/components/ui/SkeletonPulse";
 
 interface CitationCardProps {
   citations: Citation[];
@@ -66,9 +67,9 @@ function ChunkModal({ citation, onClose }: ChunkModalProps) {
         <div className="overflow-y-auto p-5">
           {fetching && (
             <div className="space-y-2">
-              <div className="h-4 rounded bg-[var(--border)] animate-pulse w-full" />
-              <div className="h-4 rounded bg-[var(--border)] animate-pulse w-5/6" />
-              <div className="h-4 rounded bg-[var(--border)] animate-pulse w-4/6" />
+              <SkeletonPulse className="h-4 w-full" />
+              <SkeletonPulse className="h-4 w-5/6" />
+              <SkeletonPulse className="h-4 w-4/6" />
             </div>
           )}
           {fetchError && (

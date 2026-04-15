@@ -7,6 +7,8 @@ import { DocumentUploader } from "@/components/ui/DocumentUploader";
 import { DocumentList } from "@/components/ui/DocumentList";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { SkeletonPulse } from "@/components/ui/SkeletonPulse";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 
 const ADMIN_TOKEN_KEY = "rag_admin_token";
 const POLL_INTERVAL_MS = 1500;
@@ -125,7 +127,7 @@ export default function DocumentsPage() {
 
         {/* Upload section — requires admin auth */}
         {token ? (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-4">
+          <Card className="p-6 space-y-4">
             <h2 className="text-sm font-semibold text-[var(--foreground)]">Upload a document</h2>
             <DocumentUploader
               onUpload={handleUpload}
@@ -133,18 +135,18 @@ export default function DocumentsPage() {
               processingStep={processingStep}
             />
             {uploadError && <ErrorAlert error={uploadError} />}
-          </div>
+          </Card>
         ) : (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-4">
+          <Card className="p-6 space-y-4">
             <h2 className="text-sm font-semibold text-[var(--foreground)]">Admin access required to upload</h2>
             <form onSubmit={handleLogin} className="flex gap-3">
-              <input
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Admin password"
                 required
-                className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors duration-150"
+                className="flex-1 bg-[var(--background)]"
               />
               <button
                 type="submit"
@@ -155,18 +157,18 @@ export default function DocumentsPage() {
               </button>
             </form>
             {authError && <ErrorAlert error={authError} />}
-          </div>
+          </Card>
         )}
 
         {/* Document list */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-[var(--foreground)]">Knowledge base</h2>
           {loading ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+            <Card className="p-4 space-y-3">
               {[...Array(3)].map((_, i) => (
                 <SkeletonPulse key={i} className="h-8 w-full" />
               ))}
-            </div>
+            </Card>
           ) : (
             <DocumentList
               documents={documents}

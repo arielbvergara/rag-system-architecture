@@ -1,7 +1,9 @@
 "use client";
 
-import type { DocumentStatus, RagDocument } from "@/types";
+import type { RagDocument } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { STATUS_STYLES, STATUS_LABELS } from "@/lib/documentStatus";
+import { Card } from "@/components/ui/Card";
 
 interface DocumentListProps {
   documents: RagDocument[];
@@ -9,35 +11,17 @@ interface DocumentListProps {
   deleting: string | null;
 }
 
-const STATUS_STYLES: Record<DocumentStatus, string> = {
-  queued:    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  parsing:   "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  chunking:  "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  embedding: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  ready:     "bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]",
-  error:     "bg-[var(--error-bg)] text-[var(--error)] border border-[var(--error-border)]",
-};
-
-const STATUS_LABELS: Record<DocumentStatus, string> = {
-  queued:    "Queued",
-  parsing:   "Parsing…",
-  chunking:  "Chunking…",
-  embedding: "Embedding…",
-  ready:     "Ready",
-  error:     "Error",
-};
-
 export function DocumentList({ documents, onDelete, deleting }: DocumentListProps) {
   if (documents.length === 0) {
     return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center">
+      <Card className="p-8 text-center">
         <p className="text-sm text-[var(--muted)]">No documents yet. Upload one to get started.</p>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+    <Card className="overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--background)]">
@@ -89,6 +73,6 @@ export function DocumentList({ documents, onDelete, deleting }: DocumentListProp
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

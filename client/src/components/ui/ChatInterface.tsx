@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { ChatMessage, RagDocument } from "@/types";
 import { CitationCard } from "./CitationCard";
 import { SkeletonPulse } from "./SkeletonPulse";
+import { IconCircle } from "./IconCircle";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -82,11 +83,11 @@ export function ChatInterface({
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.length === 0 && !streaming && (
           <div className="flex flex-col items-center justify-center h-full text-center pt-10">
-            <div className="w-12 h-12 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center mb-4">
+            <IconCircle size="lg" className="mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" aria-hidden="true">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-            </div>
+            </IconCircle>
             <p className="text-sm font-medium text-[var(--foreground)]">Start a conversation</p>
             <p className="text-xs text-[var(--muted)] mt-1">
               {readyDocs.length === 0

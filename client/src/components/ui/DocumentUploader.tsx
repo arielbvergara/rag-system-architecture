@@ -2,19 +2,12 @@
 
 import { useRef, useState, DragEvent, ChangeEvent } from "react";
 import type { DocumentStatus } from "@/types";
+import { STEP_LABELS, PROCESSING_STEPS } from "@/lib/documentStatus";
+import { IconCircle } from "@/components/ui/IconCircle";
 
 const ACCEPTED_TYPES = new Set(["application/pdf", "text/plain", "text/markdown"]);
 const ACCEPTED_EXTENSIONS = [".pdf", ".txt", ".md", ".markdown"];
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-
-const STEP_LABELS: Partial<Record<DocumentStatus, string>> = {
-  queued:    "Queued for processing…",
-  parsing:   "Parsing document…",
-  chunking:  "Splitting into chunks…",
-  embedding: "Generating embeddings…",
-};
-
-const PROCESSING_STEPS: DocumentStatus[] = ["queued", "parsing", "chunking", "embedding"];
 
 interface DocumentUploaderProps {
   onUpload: (file: File) => void;
@@ -85,13 +78,13 @@ export function DocumentUploader({ onUpload, loading, processingStep }: Document
             : "border-[var(--border)] hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/3"
         }`}
       >
-        <div className="w-10 h-10 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center">
+        <IconCircle size="md">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
             <polyline points="16 16 12 12 8 16" />
             <line x1="12" y1="12" x2="12" y2="21" />
             <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
           </svg>
-        </div>
+        </IconCircle>
         <div className="text-center">
           <p className="text-sm font-medium text-[var(--foreground)]">{statusLabel}</p>
           <p className="text-xs text-[var(--muted)] mt-1">
