@@ -92,7 +92,12 @@ pnpm dev:server    # http://localhost:4000
 ### 4. Run with Docker
 
 ```bash
+# Client + server only (local JSON vector store)
 docker compose up --build
+
+# Client + server + Qdrant (remember to set VECTOR_STORE_TYPE=qdrant
+# and QDRANT_URL=http://qdrant:6333 in your .env first)
+docker compose --profile qdrant up --build
 ```
 
 ## Environment Variables
