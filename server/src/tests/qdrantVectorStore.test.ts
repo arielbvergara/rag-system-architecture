@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { randomUUID } from "crypto";
-import type { Chunk } from "../types";
+import { makeChunk, makeVector, runVectorStoreContract } from "./vectorstoreContract";
 
 // ─── In-memory Qdrant fake ───────────────────────────────────────────────────
 // A small fake that implements the subset of the Qdrant REST API used by
@@ -179,24 +178,6 @@ import { QdrantVectorStore } from "../vectorstore/qdrantStore";
 const COLLECTION = "test_chunks";
 const VECTOR_SIZE = 4;
 
-function makeChunk(documentId: string, chunkIndex = 0): Chunk {
-  return {
-    id: randomUUID(),
-    content: `Chunk content ${chunkIndex}`,
-    metadata: {
-      documentId,
-      filename: "test.txt",
-      chunkIndex,
-      charStart: chunkIndex * 100,
-      charEnd: (chunkIndex + 1) * 100,
-    },
-  };
-}
-
-function makeVector(seed = 1): number[] {
-  return Array.from({ length: VECTOR_SIZE }, (_, i) => (seed + i) / (VECTOR_SIZE * seed + 1));
-}
-
 function newStore(apiKey?: string): QdrantVectorStore {
   return new QdrantVectorStore({
     url: "http://localhost:6333",
@@ -213,47 +194,10 @@ describe("QdrantVectorStore", () => {
     store = newStore();
   });
 
-  // ── upsert / count ─────────────────────────────────────────────────────────
+  // Behavioral contract shared with every IVectorStore implementation.
+  runVectorStoreContract(() => newStore());
 
-  it("upsert_ShouldPersistVector_WhenCalled", async () => {
-    const chunk = makeChunk("doc-1");
-    await store.upsert(chunk.id, makeVector(), chunk);
-    expect(await store.count()).toBe(1);
-  });
-
-  it("upsert_ShouldUpdateExistingVector_WhenSameIdProvided", async () => {
-    const chunk = makeChunk("doc-1");
-    await store.upsert(chunk.id, makeVector(1), chunk);
-    await store.upsert(chunk.id, makeVector(2), chunk);
-    expect(await store.count()).toBe(1);
-  });
-
-  // ── search ─────────────────────────────────────────────────────────────────
-
-  it("search_ShouldReturnTopKResults_WhenVectorsAreStored", async () => {
-    for (let i = 0; i < 5; i++) {
-      const chunk = makeChunk("doc-1", i);
-      await store.upsert(chunk.id, makeVector(i + 1), chunk);
-    }
-    const results = await store.search(makeVector(1), 3);
-    expect(results).toHaveLength(3);
-  });
-
-  it("search_ShouldReturnEmptyArray_WhenStoreIsEmpty", async () => {
-    const results = await store.search(makeVector(), 5);
-    expect(results).toHaveLength(0);
-  });
-
-  it("search_ShouldFilterByDocumentId_WhenFilterProvided", async () => {
-    const chunkA = makeChunk("doc-A");
-    const chunkB = makeChunk("doc-B");
-    await store.upsert(chunkA.id, makeVector(1), chunkA);
-    await store.upsert(chunkB.id, makeVector(1), chunkB);
-
-    const results = await store.search(makeVector(1), 10, { documentIds: ["doc-A"] });
-    expect(results).toHaveLength(1);
-    expect(results[0].documentId).toBe("doc-A");
-  });
+  // ── Qdrant-specific: filter DSL shape ──────────────────────────────────────
 
   it("search_ShouldPassDocumentIdsFilterToQdrant_WhenFilterProvided", async () => {
     const chunk = makeChunk("doc-A");
@@ -271,54 +215,6 @@ describe("QdrantVectorStore", () => {
     await store.search(makeVector(1), 5);
 
     expect(getLatestClient().lastSearchFilter).toHaveBeenLastCalledWith(undefined);
-  });
-
-  it("search_ShouldRankByCosineSimilarity_WhenMultipleVectorsPresent", async () => {
-    const query = [1, 0, 0, 0];
-    const closeChunk = makeChunk("doc-1", 0);
-    const farChunk = makeChunk("doc-1", 1);
-    await store.upsert(closeChunk.id, [0.99, 0.01, 0, 0], closeChunk);
-    await store.upsert(farChunk.id, [0, 1, 0, 0], farChunk);
-
-    const results = await store.search(query, 2);
-    expect(results[0].chunkId).toBe(closeChunk.id);
-  });
-
-  // ── deleteByDocumentId ─────────────────────────────────────────────────────
-
-  it("deleteByDocumentId_ShouldRemoveAllChunks_WhenDocumentDeleted", async () => {
-    for (let i = 0; i < 3; i++) {
-      const chunk = makeChunk("doc-to-delete", i);
-      await store.upsert(chunk.id, makeVector(i + 1), chunk);
-    }
-    const keepChunk = makeChunk("doc-keep");
-    await store.upsert(keepChunk.id, makeVector(9), keepChunk);
-
-    await store.deleteByDocumentId("doc-to-delete");
-
-    expect(await store.count()).toBe(1);
-    const results = await store.search(makeVector(), 10);
-    expect(results.every((r) => r.documentId === "doc-keep")).toBe(true);
-  });
-
-  it("deleteByDocumentId_ShouldBeIdempotent_WhenDocumentDoesNotExist", async () => {
-    await expect(store.deleteByDocumentId("nonexistent")).resolves.not.toThrow();
-  });
-
-  // ── getChunk ───────────────────────────────────────────────────────────────
-
-  it("getChunk_ShouldReturnChunk_WhenChunkExists", async () => {
-    const chunk = makeChunk("doc-1");
-    await store.upsert(chunk.id, makeVector(), chunk);
-    const found = await store.getChunk(chunk.id);
-    expect(found).not.toBeNull();
-    expect(found?.id).toBe(chunk.id);
-    expect(found?.metadata.documentId).toBe("doc-1");
-  });
-
-  it("getChunk_ShouldReturnNull_WhenChunkDoesNotExist", async () => {
-    const result = await store.getChunk("nonexistent-chunk-id");
-    expect(result).toBeNull();
   });
 
   // ── Collection lifecycle ───────────────────────────────────────────────────
