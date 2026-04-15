@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { randomUUID, createHash } from "crypto";
 import type { ApiResponse, RagDocument, Chunk } from "../types";
 import { getRagContainer } from "../lib/ragContainer";
+import { getErrorMessage } from "../lib/errorUtils";
 
 export async function uploadDocument(
   req: Request,
@@ -37,8 +38,8 @@ export async function uploadDocument(
     );
     res.status(202).json({ success: true, data: doc });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to queue document";
-    res.status(500).json({ success: false, error: message });
+    const errMsg = getErrorMessage(err, "Failed to queue document");
+    res.status(500).json({ success: false, error: errMsg });
   }
 }
 
