@@ -16,6 +16,8 @@ export const STORAGE_KEYS = {
 
 // ── Polling Configuration ─────────────────────────────────────────────────────
 
+import type { DocumentStatus } from "@/types";
+
 /** Configuration for document status polling */
 export const POLLING = {
   /** Interval between status checks in milliseconds */
@@ -23,7 +25,7 @@ export const POLLING = {
   /** Maximum number of polling attempts before giving up */
   MAX_ATTEMPTS: 120, // ~3 minutes total (120 × 1.5s)
   /** Document statuses that indicate processing is complete */
-  TERMINAL_STATUSES: ["ready", "error"] as const,
+  TERMINAL_STATUSES: ["ready", "error"] as readonly DocumentStatus[],
 } as const;
 
 // ── Transitions ───────────────────────────────────────────────────────────────

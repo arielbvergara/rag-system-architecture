@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 type IconCircleSize = "sm" | "md" | "lg";
 type IconCircleShape = "circle" | "square";
@@ -24,7 +25,12 @@ const SHAPE_CLASSES: Record<IconCircleShape, string> = {
 export function IconCircle({ children, size = "md", shape = "circle", className }: IconCircleProps) {
   return (
     <div
-      className={`${SIZE_CLASSES[size]} ${SHAPE_CLASSES[shape]} bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center${className ? ` ${className}` : ""}`}
+      className={cn(
+        SIZE_CLASSES[size],
+        SHAPE_CLASSES[shape],
+        "bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center",
+        className
+      )}
     >
       {children}
     </div>

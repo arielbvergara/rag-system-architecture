@@ -6,22 +6,20 @@ import type { ChatMessage, Citation, RagDocument, StreamChunk } from "@/types";
 import { ChatInterface } from "@/components/ui/ChatInterface";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
-
-const SESSION_KEY = "rag_session_id";
-const CHAT_MESSAGES_KEY = "rag_chat_messages";
+import { STORAGE_KEYS } from "@/config/constants";
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
-  const existing = localStorage.getItem(SESSION_KEY);
+  const existing = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
   if (existing) return existing;
   const id = crypto.randomUUID();
-  localStorage.setItem(SESSION_KEY, id);
+  localStorage.setItem(STORAGE_KEYS.SESSION_ID, id);
   return id;
 }
 
 export default function ChatPage() {
   // Messages persist across page refreshes within the same browser tab session.
-  const [messages, setMessages] = useSessionStorage<ChatMessage[]>(CHAT_MESSAGES_KEY, []);
+  const [messages, setMessages] = useSessionStorage<ChatMessage[]>(STORAGE_KEYS.CHAT_MESSAGES, []);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState("");
