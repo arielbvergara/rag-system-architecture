@@ -24,3 +24,21 @@ services:
       - PORT=4000
       - CLIENT_URL=http://localhost:3000
     restart: unless-stopped
+
+  # Optional Qdrant instance for the managed vector store backend.
+  # Activated with: `docker compose --profile qdrant up`.
+  # When active, set VECTOR_STORE_TYPE=qdrant and QDRANT_URL=http://qdrant:6333
+  # in the .env file used by the `server` service. QdrantVectorStore creates
+  # the collection lazily on first use, so no eager `depends_on` is required.
+  qdrant:
+    image: qdrant/qdrant:v1.15.0
+    profiles: ["qdrant"]
+    ports:
+      - "6333:6333"  # REST
+      - "6334:6334"  # gRPC (unused by the server but exposed for debugging)
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:

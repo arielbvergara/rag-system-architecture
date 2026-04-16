@@ -26,12 +26,23 @@ export const config = {
     chunkOverlap: parseInt(process.env.RAG_CHUNK_OVERLAP || "200", 10),
     maxDocs: parseInt(process.env.RAG_MAX_DOCS || "50", 10),
   },
+  vectorStore: {
+    type: (process.env.VECTOR_STORE_TYPE || "local") as "local" | "qdrant",
+    qdrant: {
+      url: process.env.QDRANT_URL || "",
+      apiKey: process.env.QDRANT_API_KEY || "",
+      collection: process.env.QDRANT_COLLECTION || "documents_chunks",
+    },
+  },
 } as const;
 
 if (config.env === "production") {
   const required: string[] = [];
   if (config.ai.provider === "gemini") required.push("GEMINI_API_KEY");
   if (config.ai.provider === "openai") required.push("OPENAI_API_KEY");
+  if (config.vectorStore.type === "qdrant") {
+    required.push("QDRANT_URL", "QDRANT_API_KEY");
+  }
 
   const missing = required.filter((key) => !process.env[key]);
   if (missing.length > 0) {
