@@ -1,4 +1,4 @@
-const TTL_MS = 5 * 60 * 1000; // 5 minutes
+import { CACHE_TTL_MS } from "../config/constants";
 
 interface CacheEntry<T> {
   data: T;
@@ -18,7 +18,7 @@ class Cache {
     return entry.data as T;
   }
 
-  set<T>(key: string, data: T, ttlMs = TTL_MS): void {
+  set<T>(key: string, data: T, ttlMs = CACHE_TTL_MS): void {
     this.store.set(key, { data, expiresAt: Date.now() + ttlMs });
   }
 

@@ -14,12 +14,13 @@ import type {
 import { DocumentProcessingService } from "./documentProcessingService";
 import { EmbeddingService } from "./embeddingService";
 import { config } from "../config";
-
-const DOCUMENTS_FILE = "documents.json";
-const MAX_CONTEXT_CHARS = 8000;
-const CITATION_EXCERPT_MAX_CHARS = 300;
-const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours of inactivity
-const SESSION_CLEANUP_INTERVAL_MS = 15 * 60 * 1000; // run cleanup every 15 minutes
+import {
+  DOCUMENTS_FILE,
+  MAX_CONTEXT_CHARS,
+  CITATION_EXCERPT_MAX_CHARS,
+  SESSION_TTL_MS,
+  SESSION_CLEANUP_INTERVAL_MS,
+} from "../config/constants";
 
 interface SessionEntry {
   messages: ChatMessage[];
