@@ -1,14 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { randomBytes } from "crypto";
 import type { AdminSession } from "../types";
-
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+import { ADMIN_SESSION_TTL_MS } from "../config/constants";
 
 const sessions = new Map<string, AdminSession>();
 
 export function createSession(): string {
   const token = randomBytes(32).toString("hex");
-  sessions.set(token, { token, expiresAt: Date.now() + SESSION_TTL_MS });
+  sessions.set(token, { token, expiresAt: Date.now() + ADMIN_SESSION_TTL_MS });
   return token;
 }
 

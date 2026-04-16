@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { TRANSITIONS } from "@/config/constants";
 
 type LinkButtonVariant = "primary" | "secondary";
 
@@ -10,8 +12,7 @@ interface LinkButtonProps {
   className?: string;
 }
 
-const BASE_CLASS =
-  "rounded-lg px-5 py-2.5 text-sm font-medium transition-colors duration-150 cursor-pointer";
+const BASE_CLASS = "rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer";
 
 const VARIANT_CLASSES: Record<LinkButtonVariant, string> = {
   primary: "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]",
@@ -23,7 +24,7 @@ export function LinkButton({ href, variant = "primary", children, className }: L
   return (
     <Link
       href={href}
-      className={`${BASE_CLASS} ${VARIANT_CLASSES[variant]}${className ? ` ${className}` : ""}`}
+      className={cn(BASE_CLASS, VARIANT_CLASSES[variant], TRANSITIONS.colors, className)}
     >
       {children}
     </Link>

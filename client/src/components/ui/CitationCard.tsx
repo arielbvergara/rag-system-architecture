@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Citation, ChunkDetail } from "@/types";
 import { api } from "@/lib/api";
 import { SkeletonPulse } from "@/components/ui/SkeletonPulse";
@@ -19,7 +19,7 @@ function ChunkModal({ citation, onClose }: ChunkModalProps) {
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useState(() => {
+  useEffect(() => {
     api.documents
       .getChunk(citation.documentId, citation.chunkId)
       .then((res) => {
@@ -30,7 +30,7 @@ function ChunkModal({ citation, onClose }: ChunkModalProps) {
         }
       })
       .finally(() => setFetching(false));
-  });
+  }, [citation.documentId, citation.chunkId]);
 
   return (
     <div

@@ -47,6 +47,9 @@ export interface EmbeddedChunk extends Chunk {
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  citations?: Citation[];
+  /** The model that generated this message (assistant messages only). */
+  model?: string;
 }
 
 export interface Citation {

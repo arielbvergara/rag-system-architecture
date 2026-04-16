@@ -120,7 +120,8 @@ export const rag = {
               try {
                 const chunk: StreamChunk = JSON.parse(line.slice(6));
                 onChunk(chunk);
-              } catch {
+              } catch (err) {
+                console.error("Failed to parse SSE chunk:", err);
                 // skip malformed SSE lines
               }
             }

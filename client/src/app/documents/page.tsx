@@ -9,11 +9,7 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { SkeletonPulse } from "@/components/ui/SkeletonPulse";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-
-const ADMIN_TOKEN_KEY = "rag_admin_token";
-const POLL_INTERVAL_MS = 1500;
-const POLL_MAX_ATTEMPTS = 120; // up to 3 minutes
-const TERMINAL_STATUSES: DocumentStatus[] = ["ready", "error"];
+import { STORAGE_KEYS, POLLING } from "@/config/constants";
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<RagDocument[]>([]);
@@ -24,7 +20,7 @@ export default function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() =>
-    typeof window !== "undefined" ? sessionStorage.getItem(ADMIN_TOKEN_KEY) : null
+    typeof window !== "undefined" ? sessionStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN) : null
   );
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -44,7 +40,7 @@ export default function DocumentsPage() {
   }, []);
 
   function startPolling(docId: string, attempt = 0): void {
-    if (attempt >= POLL_MAX_ATTEMPTS) {
+    if (attempt >= POLLING.MAX_ATTEMPTS) {
       setProcessingStep(null);
       return;
     }
@@ -59,12 +55,12 @@ export default function DocumentsPage() {
       setProcessingStep(doc.status);
       setDocuments((prev) => prev.map((d) => (d.id === docId ? doc : d)));
 
-      if (TERMINAL_STATUSES.includes(doc.status)) {
+      if (POLLING.TERMINAL_STATUSES.includes(doc.status)) {
         setProcessingStep(null);
       } else {
         startPolling(docId, attempt + 1);
       }
-    }, POLL_INTERVAL_MS);
+    }, POLLING.INTERVAL_MS);
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -73,7 +69,7 @@ export default function DocumentsPage() {
     setAuthError(null);
     const res = await api.admin.authenticate(password);
     if (res.success && res.data) {
-      sessionStorage.setItem(ADMIN_TOKEN_KEY, res.data.token);
+      sessionStorage.setItem(STORAGE_KEYS.ADMIN_TOKEN, res.data.token);
       setToken(res.data.token);
     } else {
       setAuthError(res.error ?? "Authentication failed");

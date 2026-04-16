@@ -51,7 +51,8 @@ export async function listDocuments(
   try {
     const docs = await ragService.listDocuments();
     res.json({ success: true, data: docs });
-  } catch {
+  } catch (err) {
+    console.error("Failed to list documents:", err);
     res.status(500).json({ success: false, error: "Failed to list documents" });
   }
 }
@@ -74,7 +75,8 @@ export async function getDocumentStatus(
       return;
     }
     res.json({ success: true, data: doc });
-  } catch {
+  } catch (err) {
+    console.error("Failed to get document status:", err);
     res.status(500).json({ success: false, error: "Failed to get document status" });
   }
 }
@@ -97,7 +99,8 @@ export async function getDocumentChunk(
       return;
     }
     res.json({ success: true, data: chunk });
-  } catch {
+  } catch (err) {
+    console.error("Failed to get chunk:", err);
     res.status(500).json({ success: false, error: "Failed to get chunk" });
   }
 }
@@ -116,7 +119,8 @@ export async function deleteDocument(
   try {
     await ragService.deleteDocument(id);
     res.json({ success: true, message: "Document deleted" });
-  } catch {
+  } catch (err) {
+    console.error("Failed to delete document:", err);
     res.status(500).json({ success: false, error: "Failed to delete document" });
   }
 }

@@ -20,36 +20,52 @@ export interface QdrantVectorStoreOptions {
  * Falling back to `getErrorMessage` alone hides the root cause.
  */
 function formatQdrantError(err: unknown): string {
-  if (typeof err === "object" && err !== null) {
-    const maybeApi = err as {
-      status?: number;
-      statusText?: string;
-      data?: unknown;
-      message?: string;
-    };
-
-    if (typeof maybeApi.status === "number") {
-      const bodyDetail = extractQdrantErrorDetail(maybeApi.data);
-      const prefix = `${maybeApi.status}${maybeApi.statusText ? ` (${maybeApi.statusText})` : ""}`;
-      if (bodyDetail) return `${prefix} — ${bodyDetail}`;
-      if (maybeApi.message) return `${prefix} — ${maybeApi.message}`;
-      return prefix;
-    }
+  if (typeof err !== "object" || err === null) {
+    return getErrorMessage(err, "unknown");
   }
-  return getErrorMessage(err, "unknown");
+
+  const apiError = err as {
+    status?: number;
+    statusText?: string;
+    data?: unknown;
+    message?: string;
+  };
+
+  if (typeof apiError.status !== "number") {
+    return getErrorMessage(err, "unknown");
+  }
+
+  const detail = extractQdrantErrorDetail(apiError.data);
+  const statusPrefix = `${apiError.status}${apiError.statusText ? ` (${apiError.statusText})` : ""}`;
+
+  if (detail) return `${statusPrefix} — ${detail}`;
+  if (apiError.message) return `${statusPrefix} — ${apiError.message}`;
+  return statusPrefix;
 }
 
 function extractQdrantErrorDetail(data: unknown): string | null {
+  // Direct string response
   if (typeof data === "string" && data.length > 0) return data;
+  
+  // Not an object - can't extract details
   if (typeof data !== "object" || data === null) return null;
-  const obj = data as { status?: unknown; error?: unknown; detail?: unknown };
+
+  const obj = data as Record<string, unknown>;
+
+  // Try common error field names
   if (typeof obj.error === "string") return obj.error;
   if (typeof obj.detail === "string") return obj.detail;
+  
+  // Try nested status.error (Qdrant's common pattern)
   if (typeof obj.status === "object" && obj.status !== null) {
-    const status = obj.status as { error?: unknown };
-    if (typeof status.error === "string") return status.error;
+    const statusError = (obj.status as Record<string, unknown>).error;
+    if (typeof statusError === "string") return statusError;
   }
+  
+  // Fallback to status if it's a string
   if (typeof obj.status === "string") return obj.status;
+
+  // Last resort: stringify the whole data object
   try {
     return JSON.stringify(data);
   } catch {
